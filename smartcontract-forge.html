@@ -1,0 +1,1922 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>TokenForge — Multi-Chain ERC-20</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root,[data-theme="dark"]{
+  --bg:#0d1117; --s1:#161b22; --s2:#1c2330; --s3:#21293a;
+  --b1:#2d3748; --b2:#3a4a60; --b3:#4a5c78;
+  --text:#e6edf3; --text2:#c9d1d9; --muted:#8b949e; --dim:#3d4f62;
+  --amber:#f0a500; --amber2:#f5c842;
+  --green:#3fb950; --red:#f85149; --blue:#58a6ff; --cyan:#39c5cf; --purple:#bc8cff;
+  --code:#0a0e14; --code-txt:#adbac7;
+  --shadow:0 4px 24px rgba(0,0,0,.45);
+  --font:'JetBrains Mono',monospace; --display:'Bebas Neue',sans-serif;
+}
+[data-theme="light"]{
+  --bg:#f6f8fa; --s1:#ffffff; --s2:#f0f4f8; --s3:#e8eef5;
+  --b1:#d0d7de; --b2:#b0bac4; --b3:#8a96a2;
+  --text:#1a2332; --text2:#364556; --muted:#57606a; --dim:#c8d4e0;
+  --amber:#c87000; --amber2:#a05a00;
+  --green:#1a7f37; --red:#cf222e; --blue:#0969da; --cyan:#0a7488; --purple:#6639ba;
+  --code:#1e2a3a; --code-txt:#adbac7;
+  --shadow:0 2px 12px rgba(0,0,0,.12);
+  --font:'JetBrains Mono',monospace; --display:'Bebas Neue',sans-serif;
+}
+
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden;transition:background .25s,color .25s}
+.grid-bg{position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(var(--b1) 1px,transparent 1px),linear-gradient(90deg,var(--b1) 1px,transparent 1px);background-size:40px 40px;opacity:.12;transition:opacity .25s}
+[data-theme="light"] .grid-bg{opacity:.3}
+.glow{position:fixed;width:800px;height:350px;border-radius:50%;background:radial-gradient(ellipse,rgba(240,165,0,.06) 0%,transparent 70%);top:-120px;left:50%;transform:translateX(-50%);pointer-events:none;z-index:0}
+
+.wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:20px 16px 80px}
+
+/* ── HEADER ── */
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;animation:fadeDown .4s ease both;flex-wrap:wrap;gap:10px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-icon{width:40px;height:40px;border:2px solid var(--amber);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:20px;color:var(--amber);position:relative;flex-shrink:0}
+.brand-icon::before{content:'';position:absolute;inset:-4px;border:1px solid rgba(240,165,0,.2)}
+.brand-name{font-family:var(--display);font-size:24px;letter-spacing:3px;color:var(--text);line-height:1}
+.brand-name em{color:var(--amber);font-style:normal}
+.brand-sub{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:3px}
+.brand-credit{font-size:9px;color:var(--muted);letter-spacing:.5px;margin-top:3px;opacity:.7}
+.brand-credit span{color:var(--amber);font-weight:700;letter-spacing:1px}
+.hdr-right{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+
+/* THEME BTN */
+.theme-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid var(--b2);background:var(--s2);color:var(--text2);font-family:var(--font);font-size:10px;letter-spacing:.8px;cursor:pointer;transition:all .2s;text-transform:uppercase}
+.theme-btn:hover{border-color:var(--amber);color:var(--text)}
+
+/* WALLET BTN */
+.wallet-btn{display:flex;align-items:center;gap:7px;padding:6px 14px;border:1px solid var(--amber);background:rgba(240,165,0,.08);color:var(--amber);font-family:var(--font);font-size:10px;letter-spacing:.8px;cursor:pointer;transition:all .2s;text-transform:uppercase;font-weight:700;white-space:nowrap}
+.wallet-btn:hover{background:rgba(240,165,0,.16)}
+.wallet-btn.connected{border-color:var(--green);color:var(--green);background:rgba(63,185,80,.08)}
+.wdot{width:7px;height:7px;border-radius:50%;background:var(--amber);animation:blink 2s ease-in-out infinite;flex-shrink:0}
+.wdot.on{background:var(--green)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* NETWORK SWITCHER */
+.net-switch-wrap{position:relative}
+.net-switch-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--b2);background:var(--s2);color:var(--text2);font-family:var(--font);font-size:10px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.net-switch-btn:hover{border-color:var(--b3);color:var(--text)}
+.net-switch-btn.active{border-color:var(--blue);color:var(--blue);background:rgba(88,166,255,.08)}
+.net-switch-dropdown{position:absolute;top:calc(100% + 6px);right:0;background:var(--s1);border:1px solid var(--b2);min-width:220px;max-height:300px;overflow-y:auto;z-index:500;box-shadow:var(--shadow);display:none}
+.net-switch-dropdown.open{display:block}
+.nsd-item{display:flex;align-items:center;gap:9px;padding:9px 13px;cursor:pointer;font-size:11px;color:var(--text2);border-bottom:1px solid var(--b1);transition:all .15s}
+.nsd-item:hover{background:var(--s2);color:var(--text)}
+.nsd-item.current{color:var(--amber);background:rgba(240,165,0,.06)}
+.nsd-icon{font-size:14px;flex-shrink:0}
+.nsd-name{font-weight:600;font-size:11px}
+.nsd-cid{font-size:9px;color:var(--muted);margin-top:1px}
+.nsd-badge{font-size:8px;padding:1px 5px;border-radius:2px;text-transform:uppercase;font-weight:700;margin-left:auto;flex-shrink:0}
+.nsd-badge.mainnet{background:rgba(63,185,80,.12);color:var(--green);border:1px solid rgba(63,185,80,.3)}
+.nsd-badge.testnet{background:rgba(240,165,0,.12);color:var(--amber);border:1px solid rgba(240,165,0,.3)}
+.nsd-badge.l2{background:rgba(88,166,255,.12);color:var(--blue);border:1px solid rgba(88,166,255,.3)}
+.nsd-badge.devnet{background:rgba(188,140,255,.12);color:var(--purple);border:1px solid rgba(188,140,255,.3)}
+.nsd-badge.custom{background:rgba(57,197,207,.12);color:var(--cyan);border:1px solid rgba(57,197,207,.3)}
+
+/* STEPS */
+.steps{display:flex;align-items:center;margin-bottom:20px;animation:fadeUp .4s ease .1s both;overflow-x:auto;gap:6px;padding-bottom:2px}
+.step{display:flex;align-items:center;gap:6px;padding:7px 13px;border:1px solid var(--b1);font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);white-space:nowrap;flex-shrink:0;transition:all .25s}
+.step.active{border-color:var(--amber);color:var(--amber);background:rgba(240,165,0,.07)}
+.step.done{border-color:var(--green);color:var(--green);background:rgba(63,185,80,.07)}
+.snum{width:16px;height:16px;border:1px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:8px;flex-shrink:0}
+
+/* LAYOUT */
+.main{display:grid;grid-template-columns:1fr 420px;gap:16px;align-items:start}
+
+/* PANELS */
+.panel{background:var(--s1);border:1px solid var(--b1);overflow:hidden;box-shadow:var(--shadow);transition:background .25s,border-color .25s}
+.panel+.panel{margin-top:14px}
+.ph{padding:11px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;background:var(--s2);transition:background .25s}
+.pt{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--amber);display:flex;align-items:center;gap:5px;font-weight:700}
+.pt::before{content:'//';color:var(--muted);font-weight:400}
+.ph-info{font-size:10px;color:var(--muted)}
+.pb{padding:16px}
+
+/* NETWORK FILTER TABS */
+.net-filters{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
+.nf-tab{padding:5px 12px;border:1px solid var(--b1);background:var(--s2);color:var(--muted);font-family:var(--font);font-size:10px;letter-spacing:.8px;text-transform:uppercase;cursor:pointer;transition:all .18s;font-weight:600}
+.nf-tab:hover{border-color:var(--b3);color:var(--text2)}
+.nf-tab.active{border-color:var(--amber);color:var(--amber);background:rgba(240,165,0,.08)}
+.nf-tab.active-mainnet{border-color:var(--green);color:var(--green);background:rgba(63,185,80,.08)}
+.nf-tab.active-testnet{border-color:var(--amber);color:var(--amber);background:rgba(240,165,0,.08)}
+.nf-tab.active-devnet{border-color:var(--purple);color:var(--purple);background:rgba(188,140,255,.08)}
+.nf-tab.active-custom{border-color:var(--cyan);color:var(--cyan);background:rgba(57,197,207,.08)}
+.nf-tab.active-l2{border-color:var(--blue);color:var(--blue);background:rgba(88,166,255,.08)}
+
+/* Network card RPC label */
+.nc-rpc{font-size:9px;color:var(--dim);margin-top:2px;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+[data-theme="light"] .nc-rpc{color:var(--muted)}
+.nc-env{display:flex;align-items:center;gap:4px;margin-top:3px}
+
+/* Custom network form */
+.custom-net-form{padding:12px;background:rgba(57,197,207,.05);border:1px solid rgba(57,197,207,.25);margin-top:10px;display:none}
+.custom-net-form.open{display:block;animation:fadeUp .2s ease both}
+.custom-form-title{font-size:10px;color:var(--cyan);letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:10px}
+.net-search{width:100%;background:var(--bg);border:1px solid var(--b1);padding:8px 12px;color:var(--text);font-family:var(--font);font-size:11px;outline:none;margin-bottom:10px;transition:border-color .2s}
+.net-search:focus{border-color:var(--amber)}
+.net-search::placeholder{color:var(--muted)}
+.net-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;max-height:300px;overflow-y:auto;padding-right:2px}
+.nc{padding:9px 11px;border:1px solid var(--b1);cursor:pointer;transition:all .18s;display:flex;align-items:center;gap:8px;position:relative;background:var(--s1)}
+.nc:hover{border-color:var(--amber);background:var(--s2)}
+.nc.sel{border-color:var(--amber);background:rgba(240,165,0,.07)}
+.nc.sel::after{content:'✓';position:absolute;top:4px;right:6px;font-size:9px;color:var(--amber);font-weight:700}
+.ni{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;border:1px solid var(--b2);flex-shrink:0;background:var(--s2)}
+.nname{font-size:11px;font-weight:600;color:var(--text)}
+.ncid{font-size:9px;color:var(--muted);margin-top:1px}
+.nt{font-size:8px;padding:1px 5px;display:inline-block;letter-spacing:.8px;text-transform:uppercase;margin-top:2px;font-weight:700;border-radius:2px}
+.nt.mainnet{background:rgba(63,185,80,.12);color:var(--green);border:1px solid rgba(63,185,80,.3)}
+.nt.testnet{background:rgba(240,165,0,.12);color:var(--amber);border:1px solid rgba(240,165,0,.3)}
+.nt.l2{background:rgba(88,166,255,.12);color:var(--blue);border:1px solid rgba(88,166,255,.3)}
+.nt.devnet{background:rgba(188,140,255,.12);color:var(--purple);border:1px solid rgba(188,140,255,.3)}
+.nt.custom{background:rgba(57,197,207,.12);color:var(--cyan);border:1px solid rgba(57,197,207,.3)}
+
+/* FORM */
+.fs{margin-bottom:20px}
+.fst{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--amber);font-weight:700;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:5px}
+.fst-num{color:var(--muted);font-weight:400}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:9px}
+.fr.s{grid-template-columns:1fr}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fl{font-size:10px;color:var(--text2);letter-spacing:.8px;text-transform:uppercase;font-weight:600}
+.fi{background:var(--bg);border:1px solid var(--b1);padding:8px 12px;color:var(--text);font-family:var(--font);font-size:12px;outline:none;transition:border-color .2s,box-shadow .2s;width:100%}
+.fi:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(240,165,0,.1)}
+.fi::placeholder{color:var(--muted)}
+select.fi option{background:var(--s2);color:var(--text)}
+.hint{font-size:10px;color:var(--muted);margin-top:2px}
+.req{color:var(--red)}
+
+/* IPFS */
+.ipfs-row{display:flex;gap:9px;align-items:center}
+.ithumb{width:44px;height:44px;border:1px solid var(--b1);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;overflow:hidden;background:var(--s2);border-radius:3px}
+.ipfs-w{flex:1;position:relative}
+.ibadge{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:8px;padding:2px 6px;letter-spacing:.8px;text-transform:uppercase;font-weight:700}
+.ibadge.v{color:var(--green);border:1px solid rgba(63,185,80,.4);background:rgba(63,185,80,.08)}
+.ibadge.x{color:var(--red);border:1px solid rgba(248,81,73,.4);background:rgba(248,81,73,.08)}
+
+/* FEATURES */
+.feat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ftog{padding:9px 11px;border:1px solid var(--b1);cursor:pointer;display:flex;align-items:center;gap:9px;transition:all .18s;user-select:none;background:var(--s1)}
+.ftog:hover{border-color:var(--b2);background:var(--s2)}
+.ftog.on{border-color:var(--green);background:rgba(63,185,80,.07)}
+.tdot{width:9px;height:9px;border:1.5px solid var(--muted);border-radius:50%;transition:all .2s;flex-shrink:0}
+.ftog.on .tdot{background:var(--green);border-color:var(--green);box-shadow:0 0 5px rgba(63,185,80,.5)}
+.fname{font-size:11px;font-weight:600;color:var(--text)}
+.fdesc{font-size:9px;color:var(--muted);margin-top:1px}
+
+/* OUTPUT PANEL */
+.out-panel{position:sticky;top:16px}
+.snet-bar{display:flex;align-items:center;gap:9px;padding:10px 14px;background:var(--s2);border:1px solid var(--b1);margin-bottom:10px}
+.snet-name{font-size:12px;font-weight:700;color:var(--text)}
+.snet-cid{margin-left:auto;font-size:10px;color:var(--muted)}
+
+/* TABS */
+.tab-bar{display:flex;border-bottom:1px solid var(--b1);background:var(--s2);overflow-x:auto}
+.tab{padding:9px 14px;font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .18s;margin-bottom:-1px;font-weight:600;white-space:nowrap;flex-shrink:0}
+.tab:hover{color:var(--text2)}
+.tab.active{color:var(--amber);border-bottom-color:var(--amber)}
+
+/* CODE */
+.cblk{background:var(--code);padding:14px;font-size:11px;line-height:1.75;color:var(--code-txt);overflow-x:auto;max-height:360px;overflow-y:auto;white-space:pre;font-family:var(--font);tab-size:4}
+.cblk::-webkit-scrollbar{width:3px;height:3px}
+.cblk::-webkit-scrollbar-thumb{background:var(--b3);border-radius:2px}
+/* syntax */
+.kw{color:#c792ea}.st{color:#c3e88d}.cm{color:#546e7a;font-style:italic}.nm{color:#f78c6c}.tp{color:#ffcb6b}
+
+/* ACTION BAR */
+.abar{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--b1);background:var(--s2);flex-wrap:wrap}
+
+/* BUTTONS */
+.btn{padding:7px 14px;border:none;font-family:var(--font);font-size:10px;letter-spacing:.8px;cursor:pointer;transition:all .18s;text-transform:uppercase;display:inline-flex;align-items:center;gap:5px;font-weight:700;white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-amber{background:var(--amber);color:#fff}
+[data-theme="light"] .btn-amber{color:#200}
+.btn-amber:hover:not(:disabled){filter:brightness(1.1)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--b2)}
+.btn-ghost:hover:not(:disabled){color:var(--text);border-color:var(--b3);background:var(--s3)}
+.btn-green{background:rgba(63,185,80,.13);color:var(--green);border:1px solid rgba(63,185,80,.38)}
+.btn-green:hover:not(:disabled){background:rgba(63,185,80,.23)}
+.btn-blue{background:rgba(88,166,255,.11);color:var(--blue);border:1px solid rgba(88,166,255,.35)}
+.btn-blue:hover:not(:disabled){background:rgba(88,166,255,.22)}
+.btn-purple{background:rgba(188,140,255,.11);color:var(--purple);border:1px solid rgba(188,140,255,.35)}
+.btn-purple:hover:not(:disabled){background:rgba(188,140,255,.22)}
+.btn-cyan{background:rgba(57,197,207,.11);color:var(--cyan);border:1px solid rgba(57,197,207,.35)}
+.btn-cyan:hover:not(:disabled){background:rgba(57,197,207,.22)}
+.btn-red{background:rgba(248,81,73,.11);color:var(--red);border:1px solid rgba(248,81,73,.35)}
+.btn-red:hover:not(:disabled){background:rgba(248,81,73,.22)}
+.btn-big{padding:12px 20px;font-size:11px;justify-content:center;width:100%}
+
+/* DEPLOY PANEL */
+.deploy-panel{margin-top:12px;border:1px solid var(--b1);background:var(--s1);box-shadow:var(--shadow)}
+.deploy-ph{padding:11px 14px;border-bottom:1px solid var(--b1);background:var(--s2);display:flex;align-items:center;justify-content:space-between}
+.deploy-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--purple);display:flex;align-items:center;gap:5px;font-weight:700}
+.deploy-title::before{content:'//';color:var(--muted);font-weight:400}
+.deploy-status{font-size:10px;color:var(--muted)}
+.deploy-body{padding:14px}
+.prog-bar{height:3px;background:var(--b1);margin-bottom:12px;overflow:hidden;border-radius:2px}
+.prog-fill{height:100%;width:0%;transition:width .5s ease;background:linear-gradient(90deg,var(--amber),var(--amber2))}
+.srow{display:flex;align-items:flex-start;gap:10px;padding:9px 11px;background:var(--s2);border:1px solid var(--b1);margin-bottom:7px}
+.sico{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;border:1px solid var(--b2);color:var(--muted);background:var(--s3);margin-top:1px}
+.sico.wait{background:rgba(240,165,0,.12);border-color:rgba(240,165,0,.4);color:var(--amber)}
+.sico.ok{background:rgba(63,185,80,.12);border-color:rgba(63,185,80,.4);color:var(--green)}
+.sico.err{background:rgba(248,81,73,.12);border-color:rgba(248,81,73,.4);color:var(--red)}
+.slabel{font-size:11px;color:var(--text);font-weight:600}
+.ssub{font-size:10px;color:var(--muted);margin-top:2px}
+.net-warn{padding:9px 12px;background:rgba(240,165,0,.08);border:1px solid rgba(240,165,0,.35);font-size:11px;color:var(--amber);display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:9px;font-weight:600}
+
+/* RESULT */
+.rbox{padding:14px;background:rgba(63,185,80,.05);border:1px solid rgba(63,185,80,.28);margin-top:10px;animation:fadeUp .35s ease both}
+.rtitle{font-size:11px;color:var(--green);margin-bottom:10px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700}
+.rrow{display:flex;gap:7px;margin-bottom:6px;padding:7px 9px;background:var(--s1);border:1px solid var(--b1)}
+.rk{font-size:9px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;flex-shrink:0;width:72px;padding-top:1px;font-weight:600}
+.rv{color:var(--text);word-break:break-all;font-size:11px}
+.rv a{color:var(--cyan);text-decoration:none}
+.rv a:hover{text-decoration:underline}
+.rv.sm{font-size:10px;color:var(--text2)}
+.ract{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.rhint{margin-top:9px;padding-top:7px;border-top:1px solid var(--b1);font-size:10px;color:var(--muted);line-height:1.6}
+
+/* DEPLOY INFO */
+.di{padding:12px}
+.dr{display:flex;gap:7px;margin-bottom:7px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1)}
+.dk{font-size:9px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;flex-shrink:0;width:80px;font-weight:600}
+.dv{color:var(--text);word-break:break-all;font-size:11px}
+.dv a{color:var(--amber);text-decoration:none}
+.dv a:hover{text-decoration:underline}
+
+/* META */
+.mp{padding:12px}
+.mlrow{display:flex;align-items:center;gap:11px;padding:10px;background:var(--s2);border:1px solid var(--b1);margin-bottom:9px}
+.mlbox{width:46px;height:46px;border:1px solid var(--b2);display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden;background:var(--s3);border-radius:3px;flex-shrink:0}
+.mlbox img{width:100%;height:100%;object-fit:cover;display:none}
+.mln{font-size:13px;font-weight:700;color:var(--text)}
+.mls{font-size:10px;color:var(--amber);margin-top:3px;letter-spacing:2px;font-weight:600}
+
+/* LEAVE MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:9999;animation:fadeUp .2s ease both;backdrop-filter:blur(6px)}
+.modal{background:var(--s1);border:1px solid var(--b2);width:92%;max-width:400px;position:relative;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--amber),var(--amber2))}
+.mhdr{padding:18px 18px 0;display:flex;align-items:center;justify-content:space-between}
+.mtitle{font-family:var(--display);font-size:20px;letter-spacing:2px;color:var(--text)}
+.mclose{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px;line-height:1;transition:color .2s}
+.mclose:hover{color:var(--text)}
+.msub{padding:5px 18px 0;font-size:11px;color:var(--muted)}
+.mbody{padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+.mopt{display:flex;align-items:center;gap:13px;padding:12px 14px;border:1px solid var(--b1);cursor:pointer;transition:all .18s;background:var(--s2)}
+.mopt:hover{border-color:var(--amber);background:var(--s3)}
+.mico{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.mico.mm{background:rgba(240,165,0,.12);border:1px solid rgba(240,165,0,.3)}
+.mico.wc{background:rgba(88,166,255,.12);border:1px solid rgba(88,166,255,.3)}
+.mico.warn{background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.3)}
+.moname{font-size:12px;font-weight:700;color:var(--text)}
+.modesc{font-size:10px;color:var(--muted);margin-top:2px}
+.moarr{margin-left:auto;color:var(--amber);font-size:14px;flex-shrink:0}
+.mdiv{display:flex;align-items:center;gap:9px}
+.mdiv::before,.mdiv::after{content:'';flex:1;height:1px;background:var(--b1)}
+.mdiv span{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.mhint{margin:0 18px 16px;padding:10px 12px;background:var(--s2);border:1px solid var(--b1);font-size:10px;color:var(--muted);line-height:1.7}
+.mhint b{color:var(--amber)}
+.mbtns{display:flex;gap:8px;padding:0 18px 16px}
+
+/* TOAST */
+#toasts{position:fixed;bottom:20px;right:18px;display:flex;flex-direction:column;gap:6px;z-index:10000}
+.toast{padding:9px 14px;background:var(--s1);border:1px solid var(--b2);border-left:3px solid var(--amber);font-size:11px;animation:slideIn .3s ease;box-shadow:var(--shadow);max-width:320px;color:var(--text);font-weight:500}
+.toast.ok{border-left-color:var(--green)}
+.toast.err{border-left-color:var(--red)}
+.toast.info{border-left-color:var(--blue)}
+
+/* SAVE INDICATOR */
+.save-dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-left:5px;opacity:0;transition:opacity .3s}
+.save-dot.show{opacity:1}
+
+/* ── RESPONSIVE ── */
+@media(max-width:940px){
+  .main{grid-template-columns:1fr}
+  .out-panel{position:static}
+  .net-switch-dropdown{right:auto;left:0}
+}
+@media(max-width:600px){
+  .wrap{padding:14px 12px 60px}
+  .brand-name{font-size:20px}
+  .brand-sub{display:none}
+  .steps{gap:4px}
+  .step{padding:6px 10px;font-size:9px}
+  .net-grid{grid-template-columns:1fr}
+  .fr{grid-template-columns:1fr}
+  .feat-grid{grid-template-columns:1fr}
+  .hdr-right{gap:5px}
+  .wallet-btn,.theme-btn,.net-switch-btn{padding:6px 10px;font-size:9px}
+  .cblk{font-size:10px;max-height:280px}
+  .tab{padding:8px 11px;font-size:9px}
+}
+@media(max-width:400px){
+  .hdr-right{width:100%}
+  header{flex-direction:column;align-items:flex-start}
+  .steps{font-size:9px}
+}
+
+/* ANIMATIONS */
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideIn{from{transform:translateX(14px);opacity:0}to{transform:translateX(0);opacity:1}}
+.spin{display:inline-block;width:10px;height:10px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:rot .6s linear infinite;vertical-align:middle}
+@keyframes rot{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div><div class="glow"></div>
+<div class="wrap">
+
+<!-- HEADER -->
+<header>
+  <div class="brand">
+    <div class="brand-icon">TF</div>
+    <div>
+      <div class="brand-name">Token<em>Forge</em></div>
+      <div class="brand-sub">ERC-20 Generator &amp; Deployer · Multi-Chain · Browser-Native</div>
+      <div class="brand-credit">Developed by <span>TAM</span> — Token Asset Manager</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <!-- Network Switcher (only when connected) -->
+    <div class="net-switch-wrap" id="netSwitchWrap" style="display:none">
+      <button class="net-switch-btn" id="netSwitchBtn" onclick="toggleNetSwitch()">
+        <span id="nsIcon">⬡</span>
+        <span id="nsName">Switch Network</span>
+        <span>▾</span>
+      </button>
+      <div class="net-switch-dropdown" id="netSwitchDrop"></div>
+    </div>
+    <button class="theme-btn" onclick="toggleTheme()">
+      <span id="themeIcon">☀️</span><span id="themeLabel">Light</span>
+    </button>
+    <button class="wallet-btn" id="walletBtn" onclick="connectWallet()">
+      <div class="wdot" id="wdot"></div>
+      <span id="wlabel">Connect Wallet</span>
+    </button>
+    <span class="save-dot" id="saveDot" title="State saved"></span>
+  </div>
+</header>
+
+<!-- STEPS -->
+<div class="steps">
+  <div class="step active" id="s1"><span class="snum">1</span> Network</div>
+  <div class="step" id="s2"><span class="snum">2</span> Configure</div>
+  <div class="step" id="s3"><span class="snum">3</span> Deploy</div>
+  <div class="step" id="s4"><span class="snum">4</span> Done ✓</div>
+</div>
+
+<div class="main">
+<!-- LEFT -->
+<div>
+  <!-- NETWORK -->
+  <div class="panel">
+    <div class="ph">
+      <div class="pt">Select Network</div>
+      <div class="ph-info" id="netCount">0 networks</div>
+    </div>
+    <div class="pb">
+      <!-- Filter tabs -->
+      <div class="net-filters">
+        <button class="nf-tab active" data-filter="all" onclick="setNetFilter('all',this)">All</button>
+        <button class="nf-tab" data-filter="mainnet" onclick="setNetFilter('mainnet',this)">Mainnet</button>
+        <button class="nf-tab" data-filter="testnet" onclick="setNetFilter('testnet',this)">Testnet</button>
+        <button class="nf-tab" data-filter="l2" onclick="setNetFilter('l2',this)">L2</button>
+        <button class="nf-tab" data-filter="devnet" onclick="setNetFilter('devnet',this)">Devnet</button>
+        <button class="nf-tab" data-filter="custom" onclick="setNetFilter('custom',this)">+ Custom</button>
+      </div>
+      <input class="fi net-search" id="netSearch" placeholder="Search name, chain ID, RPC..." oninput="filterNets()"/>
+      <div class="net-grid" id="netGrid"></div>
+
+      <!-- Custom network form -->
+      <div class="custom-net-form" id="customNetForm">
+        <div class="custom-form-title">⚙ Add Custom Network</div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Network Name</label><input class="fi" id="cnName" placeholder="e.g. My Local Chain"/></div>
+          <div class="fg"><label class="fl">Chain ID</label><input class="fi" id="cnCid" placeholder="e.g. 31337" type="number"/></div>
+        </div>
+        <div class="fr s">
+          <div class="fg"><label class="fl">RPC URL <span class="req">*</span></label><input class="fi" id="cnRpc" placeholder="https:// or http://localhost:8545"/></div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Currency Symbol</label><input class="fi" id="cnSym" placeholder="ETH"/></div>
+          <div class="fg"><label class="fl">Explorer URL</label><input class="fi" id="cnExp" placeholder="https://..."/></div>
+        </div>
+        <div style="display:flex;gap:7px;margin-top:10px">
+          <button class="btn btn-cyan" onclick="addCustomNet()" style="flex:1;justify-content:center">+ Add Network</button>
+          <button class="btn btn-ghost" onclick="clearCustomForm()">Clear</button>
+        </div>
+        <div class="hint" style="margin-top:8px">Custom networks are saved locally and appear in the network list.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIG -->
+  <div class="panel">
+    <div class="ph"><div class="pt">Token Configuration</div></div>
+    <div class="pb">
+
+      <div class="fs">
+        <div class="fst"><span class="fst-num">01</span> Basic Info</div>
+        <div class="fr">
+          <div class="fg">
+            <label class="fl">Token Name <span class="req">*</span></label>
+            <input class="fi" id="tName" placeholder="e.g. StableNova" maxlength="64" oninput="onChange()"/>
+            <div class="hint">Letters, numbers, hyphens only</div>
+          </div>
+          <div class="fg">
+            <label class="fl">Symbol <span class="req">*</span></label>
+            <input class="fi" id="tSymbol" placeholder="SNOV" maxlength="8" oninput="onChange()" style="text-transform:uppercase"/>
+            <div class="hint">Max 8 chars, uppercase</div>
+          </div>
+        </div>
+        <div class="fr">
+          <div class="fg">
+            <label class="fl">Initial Supply <span class="req">*</span></label>
+            <input class="fi" id="tSupply" placeholder="1000000" type="number" min="1" oninput="onChange()"/>
+          </div>
+          <div class="fg">
+            <label class="fl">Decimals</label>
+            <select class="fi" id="tDec" onchange="onChange()">
+              <option value="18">18 — Standard ERC-20</option>
+              <option value="6" selected>6 — Stablecoin</option>
+              <option value="8">8 — Bitcoin style</option>
+              <option value="0">0 — Whole units only</option>
+            </select>
+          </div>
+        </div>
+        <div class="fr s">
+          <div class="fg">
+            <label class="fl">Description</label>
+            <input class="fi" id="tDesc" placeholder="Brief description" oninput="onChange()"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="fs">
+        <div class="fst"><span class="fst-num">02</span> Logo via IPFS</div>
+        <div class="ipfs-row">
+          <div class="ithumb" id="logoThumb">🪙</div>
+          <div class="ipfs-w">
+            <input class="fi" id="tLogo" placeholder="https://gateway.pinata.cloud/ipfs/Qm..." oninput="onLogo()" style="padding-right:68px"/>
+            <span class="ibadge" id="logoBadge"></span>
+          </div>
+        </div>
+        <div style="margin-top:9px;padding:10px 12px;background:var(--s2);border:1px solid var(--b1)">
+          <div style="font-size:10px;color:var(--amber);letter-spacing:1.5px;font-weight:700;margin-bottom:6px;text-transform:uppercase">Quick IPFS Setup</div>
+          <div style="font-size:11px;color:var(--text2);line-height:1.9">
+            1. Upload PNG to <a href="https://pinata.cloud" target="_blank" style="color:var(--amber)">pinata.cloud</a> (free)<br>
+            2. Copy the CID from dashboard<br>
+            3. URL: <span style="color:var(--cyan);font-size:10px">https://gateway.pinata.cloud/ipfs/CID</span><br>
+            4. Paste above — previews instantly ✓
+          </div>
+        </div>
+      </div>
+
+      <div class="fs">
+        <div class="fst"><span class="fst-num">03</span> Features</div>
+        <div class="feat-grid">
+          <div class="ftog on" data-f="mintable" onclick="toggleFeat(this)"><div class="tdot"></div><div><div class="fname">Mintable</div><div class="fdesc">Owner can mint more</div></div></div>
+          <div class="ftog on" data-f="burnable" onclick="toggleFeat(this)"><div class="tdot"></div><div><div class="fname">Burnable</div><div class="fdesc">Anyone can burn</div></div></div>
+          <div class="ftog" data-f="pausable" onclick="toggleFeat(this)"><div class="tdot"></div><div><div class="fname">Pausable</div><div class="fdesc">Owner can pause</div></div></div>
+          <div class="ftog" data-f="capped" onclick="toggleFeat(this)"><div class="tdot"></div><div><div class="fname">Supply Cap</div><div class="fdesc">Hard max supply</div></div></div>
+          <div class="ftog" data-f="blacklist" onclick="toggleFeat(this)"><div class="tdot"></div><div><div class="fname">Blacklist</div><div class="fdesc">Block addresses</div></div></div>
+          <div class="ftog" data-f="taxable" onclick="toggleFeat(this)"><div class="tdot"></div><div><div class="fname">Tax / Fee</div><div class="fdesc">Transfer fee %</div></div></div>
+        </div>
+        <div id="capWrap" style="display:none;margin-top:9px">
+          <div class="fg"><label class="fl">Max Supply Cap</label><input class="fi" id="tCap" placeholder="e.g. 100000000" type="number" oninput="onChange()"/></div>
+        </div>
+        <div id="taxWrap" style="display:none;margin-top:9px">
+          <div class="fr">
+            <div class="fg"><label class="fl">Tax % (max 25)</label><input class="fi" id="tTax" placeholder="2" type="number" min="0" max="25" oninput="onChange()"/></div>
+            <div class="fg"><label class="fl">Tax Wallet</label><input class="fi" id="tTaxWallet" placeholder="0x..." oninput="onChange()"/></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fs">
+        <div class="fst"><span class="fst-num">04</span> Links <span style="color:var(--muted);font-weight:400;font-size:9px">(optional)</span></div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Website</label><input class="fi" id="tWeb" placeholder="https://" oninput="onChange()"/></div>
+          <div class="fg"><label class="fl">Twitter / X</label><input class="fi" id="tTwitter" placeholder="https://x.com/..." oninput="onChange()"/></div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Telegram</label><input class="fi" id="tTg" placeholder="https://t.me/..." oninput="onChange()"/></div>
+          <div class="fg"><label class="fl">Discord</label><input class="fi" id="tDc" placeholder="https://discord.gg/..." oninput="onChange()"/></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT -->
+<div class="out-panel">
+  <div id="noNetMsg" style="padding:28px;text-align:center;border:1px solid var(--b1);background:var(--s1);color:var(--muted);font-size:12px;line-height:1.9">← Select a network<br>to get started</div>
+  <div id="outWrap" style="display:none">
+
+    <div class="snet-bar">
+      <div class="ni" id="oNI" style="width:26px;height:26px;font-size:12px">—</div>
+      <div class="snet-name" id="oNN">—</div>
+      <div class="snet-cid" id="oCID">—</div>
+    </div>
+
+    <div class="panel">
+      <div class="tab-bar">
+        <div class="tab active" onclick="setTab('contract')">Contract</div>
+        <div class="tab" onclick="setTab('metadata')">Metadata</div>
+        <div class="tab" onclick="setTab('info')">Deploy Info</div>
+      </div>
+
+      <div id="tab-contract">
+        <pre class="cblk" id="contractCode">// Select network + fill token details</pre>
+        <div class="abar">
+          <button class="btn btn-amber" onclick="copyEl('contractCode')">⎘ Copy</button>
+          <button class="btn btn-ghost" onclick="dlContract()">↓ .sol</button>
+          <button class="btn btn-green" onclick="downloadPackage()" id="pkgBtn">⬇ .zip</button>
+        </div>
+      </div>
+
+      <div id="tab-metadata" style="display:none">
+        <div class="mp">
+          <div class="mlrow">
+            <div class="mlbox" id="metaLogo">🪙</div>
+            <div><div class="mln" id="metaName">Token Name</div><div class="mls" id="metaSym">SYM</div></div>
+          </div>
+        </div>
+        <pre class="cblk" id="metaCode">{}</pre>
+        <div class="abar">
+          <button class="btn btn-amber" onclick="copyEl('metaCode')">⎘ Copy JSON</button>
+          <button class="btn btn-ghost" onclick="dlMeta()">↓ metadata.json</button>
+        </div>
+      </div>
+
+      <div id="tab-info" style="display:none">
+        <div class="di" id="deployInfoBody"></div>
+      </div>
+    </div>
+
+    <!-- DEPLOY PANEL -->
+    <div class="deploy-panel">
+      <div class="deploy-ph">
+        <div class="deploy-title">Deploy Contract</div>
+        <div class="deploy-status" id="deployStatus">wallet not connected</div>
+      </div>
+      <div class="deploy-body">
+        <div id="netWarn" style="display:none" class="net-warn">
+          <span id="netWarnMsg">Wrong network</span>
+          <button class="btn btn-amber" style="padding:4px 10px;font-size:9px" onclick="switchNet()">Switch ↗</button>
+        </div>
+        <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+        <div class="srow"><div class="sico" id="si0">①</div><div><div class="slabel">Load Compiler</div><div class="ssub" id="sm0">Solc v0.8.20 · ~7MB · cached</div></div></div>
+        <div class="srow"><div class="sico" id="si1">②</div><div><div class="slabel">Compile Contract</div><div class="ssub" id="sm1">Runs in browser</div></div></div>
+        <div class="srow"><div class="sico" id="si2">③</div><div><div class="slabel">Deploy via MetaMask</div><div class="ssub" id="sm2">Sign and broadcast</div></div></div>
+        <div class="srow"><div class="sico" id="si3">④</div><div><div class="slabel">Confirm on Chain</div><div class="ssub" id="sm3">Waiting for block</div></div></div>
+
+        <div id="rbox" style="display:none" class="rbox">
+          <div class="rtitle">✓ Token Deployed Successfully</div>
+          <div class="rrow"><div class="rk">Contract</div><div class="rv" id="rContract">—</div></div>
+          <div class="rrow"><div class="rk">Tx Hash</div><div class="rv" id="rTxHash">—</div></div>
+          <div class="rrow"><div class="rk">Network</div><div class="rv" id="rNetwork">—</div></div>
+          <div class="rrow"><div class="rk">Logo URI</div><div class="rv sm" id="rLogoURI" style="color:var(--cyan)">—</div></div>
+          <div class="ract">
+            <button class="btn btn-blue" onclick="openExplorer()">↗ Explorer</button>
+            <button class="btn btn-purple" id="verifyBtn" onclick="openVerify()">✓ Verify</button>
+            <button class="btn btn-cyan" onclick="addToMM()">+ MetaMask</button>
+          </div>
+          <div class="rhint">
+            Copy contract address → verify source on explorer → submit logo to token update form.
+          </div>
+        </div>
+
+        <div style="display:flex;gap:7px;margin-top:10px">
+          <button class="btn btn-green btn-big" id="deployBtn" onclick="deployToken()" disabled>◈ Deploy Token</button>
+          <button class="btn btn-ghost" onclick="resetDeploy()" title="Reset">↺</button>
+        </div>
+        <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:7px">
+          Compiler from <span style="color:var(--cyan)">soliditylang.org</span> · 100% browser · no server
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+<div id="toasts"></div>
+
+<script>
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+const SK = 'tf_state_v2';
+let selNet=null, feats={mintable:true,burnable:true,pausable:false,capped:false,blacklist:false,taxable:false};
+let walletAddr=null, provider=null, signer=null;
+let solcModule=null, solcLoaded=false;
+let currentTab='contract', deployed=false;
+let deployedAddr=null, deployedTxHash=null;
+let isDirty=false, saveTimer=null;
+
+// ════════════════════════════════════════════
+// THEME
+// ════════════════════════════════════════════
+let theme=localStorage.getItem('tf-theme')||'dark';
+applyTheme(theme);
+function applyTheme(t){
+  theme=t;
+  document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('tf-theme',t);
+  document.getElementById('themeIcon').textContent=t==='dark'?'☀️':'🌙';
+  document.getElementById('themeLabel').textContent=t==='dark'?'Light':'Dark';
+}
+function toggleTheme(){ applyTheme(theme==='dark'?'light':'dark'); }
+
+// ════════════════════════════════════════════
+// STATE PERSISTENCE
+// ════════════════════════════════════════════
+function saveState(){
+  try{
+    const s={
+      netId:selNet?.id||null,
+      feats:{...feats},
+      fields:{
+        tName:v('tName'),tSymbol:v('tSymbol'),tSupply:v('tSupply'),tDec:v('tDec'),
+        tDesc:v('tDesc'),tLogo:v('tLogo'),tCap:v('tCap'),tTax:v('tTax'),
+        tTaxWallet:v('tTaxWallet'),tWeb:v('tWeb'),tTwitter:v('tTwitter'),
+        tTg:v('tTg'),tDc:v('tDc')
+      }
+    };
+    localStorage.setItem(SK,JSON.stringify(s));
+    const dot=document.getElementById('saveDot');
+    dot.classList.add('show');
+    setTimeout(()=>dot.classList.remove('show'),1200);
+  }catch(e){}
+}
+
+function loadState(){
+  try{
+    const raw=localStorage.getItem(SK);
+    if(!raw) return;
+    const s=JSON.parse(raw);
+    // restore fields
+    Object.entries(s.fields||{}).forEach(([id,val])=>{
+      const el=document.getElementById(id);
+      if(el) el.value=val||'';
+    });
+    // restore features
+    if(s.feats){
+      Object.entries(s.feats).forEach(([k,v])=>{
+        feats[k]=v;
+        const el=document.querySelector(`[data-f="${k}"]`);
+        if(el) el.classList.toggle('on',v);
+        const dot=document.querySelector(`[data-f="${k}"] .tdot`);
+        if(dot) dot.style.background=v?'var(--green)':'';
+      });
+      if(feats.capped)  document.getElementById('capWrap').style.display='block';
+      if(feats.taxable) document.getElementById('taxWrap').style.display='block';
+    }
+    // restore network
+    if(s.netId){
+      const n=NETS.find(x=>x.id===s.netId);
+      if(n){ selNet=n; activateNet(n); }
+    }
+    // trigger logo preview if url exists
+    if(s.fields?.tLogo) onLogo();
+  }catch(e){}
+}
+
+function scheduleSave(){
+  isDirty=true;
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(saveState,800);
+}
+
+function v(id){ const el=document.getElementById(id); return el?el.value:''; }
+
+// ════════════════════════════════════════════
+// LEAVE WARNING
+// ════════════════════════════════════════════
+window.addEventListener('beforeunload',e=>{
+  if(isDirty&&!deployed){
+    e.preventDefault();
+    e.returnValue='';
+  }
+});
+
+function showLeaveModal(onContinue){
+  const ov=document.createElement('div');
+  ov.className='overlay'; ov.id='leaveModal';
+  ov.innerHTML=`
+    <div class="modal">
+      <div class="mhdr">
+        <div class="mtitle" style="color:var(--red)">⚠ Unsaved Work</div>
+        <button class="mclose" onclick="document.getElementById('leaveModal').remove()">✕</button>
+      </div>
+      <div class="msub" style="padding:10px 18px 0;font-size:12px;color:var(--text2)">
+        Your form data is saved in this browser, but if you clear site data or open on a different device, your configuration will be lost.
+      </div>
+      <div class="mbtns" style="padding:16px 18px">
+        <button class="btn btn-red" style="flex:1;justify-content:center" onclick="document.getElementById('leaveModal').remove();(${onContinue.toString()})()">Continue anyway</button>
+        <button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="document.getElementById('leaveModal').remove()">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+}
+
+// ════════════════════════════════════════════
+// NETWORKS — mainnet / testnet / l2 / devnet / custom
+// rpcLabel: friendly name shown on the card
+// envNote: shown in deploy info — explains what this env is for
+// ════════════════════════════════════════════
+const NETS_BASE = [
+  // ── MAINNETS ─────────────────────────────────────────────────────────────
+  {id:'eth',    name:'Ethereum',          sym:'ETH',  cid:1,         icon:'⟠',type:'mainnet',rpc:'https://cloudflare-eth.com',                        rpcLabel:'Cloudflare Public RPC',     exp:'https://etherscan.io',          expTx:'https://etherscan.io/tx/',          verify:'https://etherscan.io/verifyContract',         envNote:'Production mainnet. Real ETH required for gas.'},
+  {id:'poly',   name:'Polygon',           sym:'POL',  cid:137,       icon:'⬡',type:'mainnet',rpc:'https://polygon-rpc.com',                           rpcLabel:'Polygon Public RPC',         exp:'https://polygonscan.com',        expTx:'https://polygonscan.com/tx/',       verify:'https://polygonscan.com/verifyContract',       envNote:'Production mainnet. Real POL required for gas.'},
+  {id:'bnb',    name:'BNB Smart Chain',   sym:'BNB',  cid:56,        icon:'◈',type:'mainnet',rpc:'https://bsc-dataseed.binance.org',                  rpcLabel:'Binance Public RPC',         exp:'https://bscscan.com',            expTx:'https://bscscan.com/tx/',           verify:'https://bscscan.com/verifyContract',           envNote:'Production mainnet. Real BNB required for gas.'},
+  {id:'avax',   name:'Avalanche C-Chain', sym:'AVAX', cid:43114,     icon:'▲',type:'mainnet',rpc:'https://api.avax.network/ext/bc/C/rpc',             rpcLabel:'Avalanche Public RPC',       exp:'https://snowtrace.io',           expTx:'https://snowtrace.io/tx/',          verify:'https://snowtrace.io/verifyContract',          envNote:'Production mainnet. Real AVAX required for gas.'},
+  {id:'arb',    name:'Arbitrum One',      sym:'ETH',  cid:42161,     icon:'🔵',type:'l2',    rpc:'https://arb1.arbitrum.io/rpc',                      rpcLabel:'Arbitrum Public RPC',        exp:'https://arbiscan.io',            expTx:'https://arbiscan.io/tx/',           verify:'https://arbiscan.io/verifyContract',           envNote:'Ethereum L2. Lower gas, real ETH required.'},
+  {id:'op',     name:'Optimism',          sym:'ETH',  cid:10,        icon:'🔴',type:'l2',    rpc:'https://mainnet.optimism.io',                       rpcLabel:'Optimism Public RPC',        exp:'https://optimistic.etherscan.io',expTx:'https://optimistic.etherscan.io/tx/',verify:'https://optimistic.etherscan.io/verifyContract',envNote:'Ethereum L2. Lower gas, real ETH required.'},
+  {id:'base',   name:'Base',              sym:'ETH',  cid:8453,      icon:'🔷',type:'l2',    rpc:'https://mainnet.base.org',                          rpcLabel:'Base Public RPC',            exp:'https://basescan.org',           expTx:'https://basescan.org/tx/',          verify:'https://basescan.org/verifyContract',          envNote:'Coinbase Ethereum L2. Lower gas, real ETH required.'},
+  {id:'ftm',    name:'Fantom',            sym:'FTM',  cid:250,       icon:'👻',type:'mainnet',rpc:'https://rpcapi.fantom.network',                    rpcLabel:'Fantom Public RPC',          exp:'https://ftmscan.com',            expTx:'https://ftmscan.com/tx/',           verify:'https://ftmscan.com/verifyContract',           envNote:'Production mainnet. Real FTM required for gas.'},
+  {id:'cro',    name:'Cronos',            sym:'CRO',  cid:25,        icon:'🅲',type:'mainnet',rpc:'https://evm.cronos.org',                           rpcLabel:'Cronos Public RPC',          exp:'https://cronoscan.com',          expTx:'https://cronoscan.com/tx/',         verify:'https://cronoscan.com/verifyContract',         envNote:'Production mainnet. Real CRO required for gas.'},
+  {id:'celo',   name:'Celo',              sym:'CELO', cid:42220,     icon:'🌿',type:'mainnet',rpc:'https://forno.celo.org',                           rpcLabel:'Celo Forno RPC',             exp:'https://celoscan.io',            expTx:'https://celoscan.io/tx/',           verify:'https://celoscan.io/verifyContract',           envNote:'Production mainnet. Real CELO required for gas.'},
+  {id:'moon',   name:'Moonbeam',          sym:'GLMR', cid:1284,      icon:'🌙',type:'mainnet',rpc:'https://rpc.api.moonbeam.network',                 rpcLabel:'Moonbeam Public RPC',        exp:'https://moonscan.io',            expTx:'https://moonscan.io/tx/',           verify:'https://moonscan.io/verifyContract',           envNote:'Polkadot-compatible mainnet. Real GLMR for gas.'},
+  {id:'zksync', name:'zkSync Era',        sym:'ETH',  cid:324,       icon:'⚡',type:'l2',    rpc:'https://mainnet.era.zksync.io',                     rpcLabel:'zkSync Era Public RPC',      exp:'https://explorer.zksync.io',     expTx:'https://explorer.zksync.io/tx/',                                                                  envNote:'ZK-rollup L2. Real ETH required for gas.'},
+  {id:'linea',  name:'Linea',             sym:'ETH',  cid:59144,     icon:'📐',type:'l2',    rpc:'https://rpc.linea.build',                           rpcLabel:'Linea Public RPC',           exp:'https://lineascan.build',        expTx:'https://lineascan.build/tx/',       verify:'https://lineascan.build/verifyContract',       envNote:'ConsenSys ZK-rollup L2. Real ETH required.'},
+  {id:'scroll', name:'Scroll',            sym:'ETH',  cid:534352,    icon:'📜',type:'l2',    rpc:'https://rpc.scroll.io',                             rpcLabel:'Scroll Public RPC',          exp:'https://scrollscan.com',         expTx:'https://scrollscan.com/tx/',        verify:'https://scrollscan.com/verifyContract',        envNote:'ZK-rollup L2. Real ETH required for gas.'},
+  {id:'mantle', name:'Mantle',            sym:'MNT',  cid:5000,      icon:'🏔',type:'l2',    rpc:'https://rpc.mantle.xyz',                            rpcLabel:'Mantle Public RPC',          exp:'https://mantlescan.xyz',         expTx:'https://mantlescan.xyz/tx/',                                                                       envNote:'Modular L2. Real MNT required for gas.'},
+  {id:'gnosis', name:'Gnosis',            sym:'xDAI', cid:100,       icon:'🦉',type:'mainnet',rpc:'https://rpc.gnosischain.com',                      rpcLabel:'Gnosis Public RPC',          exp:'https://gnosisscan.io',          expTx:'https://gnosisscan.io/tx/',         verify:'https://gnosisscan.io/verifyContract',         envNote:'Production mainnet. Real xDAI required for gas.'},
+  {id:'okx',    name:'OKX Chain',         sym:'OKT',  cid:66,        icon:'⭕',type:'mainnet',rpc:'https://exchainrpc.okex.org',                      rpcLabel:'OKX Public RPC',             exp:'https://www.oklink.com/okc',     expTx:'https://www.oklink.com/okc/tx/',                                                                   envNote:'OKX production mainnet. Real OKT for gas.'},
+  {id:'core',   name:'Core Chain',        sym:'CORE', cid:1116,      icon:'🔘',type:'mainnet',rpc:'https://rpc.coredao.org',                          rpcLabel:'Core DAO Public RPC',        exp:'https://scan.coredao.org',       expTx:'https://scan.coredao.org/tx/',                                                                     envNote:'Bitcoin-secured mainnet. Real CORE for gas.'},
+  {id:'pulse',  name:'PulseChain',        sym:'PLS',  cid:369,       icon:'💗',type:'mainnet',rpc:'https://rpc.pulsechain.com',                       rpcLabel:'PulseChain Public RPC',      exp:'https://scan.pulsechain.com',    expTx:'https://scan.pulsechain.com/tx/',                                                                  envNote:'Production mainnet. Real PLS required for gas.'},
+  // ── TESTNETS ──────────────────────────────────────────────────────────────
+  {id:'amoy',   name:'Polygon Amoy',      sym:'POL',  cid:80002,     icon:'⬡',type:'testnet',rpc:'https://rpc-amoy.polygon.technology',               rpcLabel:'Polygon Amoy RPC',           exp:'https://amoy.polygonscan.com',   expTx:'https://amoy.polygonscan.com/tx/',  verify:'https://amoy.polygonscan.com/verifyContract', faucet:'https://faucet.polygon.technology',  envNote:'Polygon testnet. Use free test POL from faucet. Safe to experiment.'},
+  {id:'sep',    name:'Ethereum Sepolia',  sym:'ETH',  cid:11155111,  icon:'⟠',type:'testnet',rpc:'https://rpc.sepolia.org',                           rpcLabel:'Sepolia Public RPC',         exp:'https://sepolia.etherscan.io',   expTx:'https://sepolia.etherscan.io/tx/', verify:'https://sepolia.etherscan.io/verifyContract',faucet:'https://sepoliafaucet.com',         envNote:'Ethereum testnet. Use free test ETH from faucet. No real funds.'},
+  {id:'bsct',   name:'BNB Testnet',       sym:'tBNB', cid:97,        icon:'◈',type:'testnet',rpc:'https://data-seed-prebsc-1-s1.binance.org:8545',    rpcLabel:'BNB Testnet RPC',            exp:'https://testnet.bscscan.com',    expTx:'https://testnet.bscscan.com/tx/', verify:'https://testnet.bscscan.com/verifyContract',  faucet:'https://testnet.bnbchain.org/faucet-smart',envNote:'BNB testnet. Use free test BNB from faucet.'},
+  {id:'fuji',   name:'Avalanche Fuji',    sym:'AVAX', cid:43113,     icon:'▲',type:'testnet',rpc:'https://api.avax-test.network/ext/bc/C/rpc',        rpcLabel:'Avalanche Fuji RPC',         exp:'https://testnet.snowtrace.io',   expTx:'https://testnet.snowtrace.io/tx/',                                                             faucet:'https://faucet.avax.network',       envNote:'Avalanche testnet. Use free test AVAX from faucet.'},
+  {id:'arbsep', name:'Arbitrum Sepolia',  sym:'ETH',  cid:421614,    icon:'🔵',type:'testnet',rpc:'https://sepolia-rollup.arbitrum.io/rpc',            rpcLabel:'Arbitrum Sepolia RPC',       exp:'https://sepolia.arbiscan.io',    expTx:'https://sepolia.arbiscan.io/tx/', verify:'https://sepolia.arbiscan.io/verifyContract',  faucet:'https://faucet.arbitrum.io',        envNote:'Arbitrum L2 testnet. Test L2 behavior without real funds.'},
+  {id:'opsep',  name:'Optimism Sepolia',  sym:'ETH',  cid:11155420,  icon:'🔴',type:'testnet',rpc:'https://sepolia.optimism.io',                      rpcLabel:'Optimism Sepolia RPC',       exp:'https://sepolia-optimism.etherscan.io',expTx:'https://sepolia-optimism.etherscan.io/tx/',                                              faucet:'https://app.optimism.io/faucet',    envNote:'Optimism L2 testnet. Test L2 behavior without real funds.'},
+  {id:'basep',  name:'Base Sepolia',      sym:'ETH',  cid:84532,     icon:'🔷',type:'testnet',rpc:'https://sepolia.base.org',                         rpcLabel:'Base Sepolia RPC',           exp:'https://sepolia.basescan.org',   expTx:'https://sepolia.basescan.org/tx/',verify:'https://sepolia.basescan.org/verifyContract', faucet:'https://faucet.quicknode.com/base/sepolia',envNote:'Base L2 testnet. Test without real ETH.'},
+  {id:'ftmt',   name:'Fantom Testnet',    sym:'FTM',  cid:4002,      icon:'👻',type:'testnet',rpc:'https://rpc.testnet.fantom.network',               rpcLabel:'Fantom Testnet RPC',         exp:'https://testnet.ftmscan.com',    expTx:'https://testnet.ftmscan.com/tx/',                                                              faucet:'https://faucet.fantom.network',     envNote:'Fantom testnet. Use free test FTM from faucet.'},
+  // ── DEVNETS ──────────────────────────────────────────────────────────────
+  {id:'hardhat',name:'Hardhat Local',     sym:'ETH',  cid:31337,     icon:'⚙',type:'devnet', rpc:'http://127.0.0.1:8545',                             rpcLabel:'Hardhat Node · localhost:8545',exp:'',                              expTx:'',                                                                                                 envNote:'Local Hardhat node. Run `npx hardhat node` first. Pre-funded test accounts. No MetaMask needed — use Hardhat config directly.'},
+  {id:'ganache',name:'Ganache Local',     sym:'ETH',  cid:1337,      icon:'🟣',type:'devnet', rpc:'http://127.0.0.1:7545',                             rpcLabel:'Ganache · localhost:7545',   exp:'',                              expTx:'',                                                                                                 envNote:'Local Ganache instance. Run Ganache UI or CLI first. Pre-funded test accounts. Good for Truffle/Remix development.'},
+  {id:'anvil',  name:'Anvil Local',       sym:'ETH',  cid:31337,     icon:'🔨',type:'devnet', rpc:'http://127.0.0.1:8545',                             rpcLabel:'Anvil (Foundry) · localhost:8545',exp:'',                          expTx:'',                                                                                                 envNote:'Local Anvil node (Foundry). Run `anvil` in terminal first. Fastest local EVM. Pre-funded accounts included.'},
+];
+
+// Merge with custom networks from localStorage
+let customNets = [];
+try { customNets = JSON.parse(localStorage.getItem('tf_custom_nets')||'[]'); } catch(e){}
+const NETS = [...NETS_BASE, ...customNets];
+
+let activeNetFilter = 'all';
+
+// ════════════════════════════════════════════
+// NETWORK RENDERING
+// ════════════════════════════════════════════
+function renderNets(list){
+  document.getElementById('netCount').textContent = list.length + ' networks';
+  if(!list.length){
+    document.getElementById('netGrid').innerHTML = '<div style="grid-column:1/-1;padding:20px;text-align:center;font-size:11px;color:var(--muted)">No networks match</div>';
+    return;
+  }
+  const ORDER = ['mainnet','l2','testnet','devnet','custom'];
+  const TYPE_LABELS  = {mainnet:'Mainnet',l2:'Layer 2',testnet:'Testnet',devnet:'Local Devnet',custom:'Custom'};
+  const TYPE_COLORS  = {mainnet:'var(--green)',l2:'var(--blue)',testnet:'var(--amber)',devnet:'var(--purple)',custom:'var(--cyan)'};
+  const groups = {};
+  list.forEach(n=>{ const t=n.type||'custom'; if(!groups[t]) groups[t]=[]; groups[t].push(n); });
+  const keys = ORDER.filter(k=>groups[k]);
+  const showHeaders = keys.length > 1;
+  let html = '';
+  keys.forEach(type=>{
+    if(showHeaders){
+      html += `<div style="grid-column:1/-1;margin-top:8px;margin-bottom:2px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:${TYPE_COLORS[type]};font-weight:700">${TYPE_LABELS[type]||type}</span>
+        <span style="flex:1;height:1px;background:var(--b1)"></span>
+        <span style="font-size:9px;color:var(--muted)">${groups[type].length}</span></div>`;
+    }
+    groups[type].forEach(n=>{
+      const isSel = selNet?.id===n.id;
+      html += `<div class="nc ${isSel?'sel':''}" onclick="pickNet('${n.id}')">
+        <div class="ni">${n.icon}</div>
+        <div style="min-width:0;flex:1;overflow:hidden">
+          <div class="nname">${n.name}${n.type==='custom'?' <span style="font-size:8px;color:var(--cyan)">[custom]</span>':''}</div>
+          <div class="ncid">Chain ${n.cid} · ${n.sym}</div>
+          <div class="nc-rpc" title="${n.rpc}">${n.rpcLabel||n.rpc}</div>
+          <div class="nc-env">
+            <span class="nt ${n.type}">${n.type}</span>
+            ${n.type==='devnet'?'<span style="font-size:8px;color:var(--purple);letter-spacing:.4px;margin-left:3px">LOCAL</span>':''}
+            ${n.faucet?`<span style="font-size:8px;color:var(--green);cursor:pointer;margin-left:3px" onclick="event.stopPropagation();window.open('${n.faucet}','_blank')" title="Get test ${n.sym}">⛽</span>`:''}
+          </div>
+        </div>
+        ${isSel?'<span style="position:absolute;top:4px;right:6px;font-size:9px;color:var(--amber);font-weight:700">✓</span>':''}
+      </div>`;
+    });
+  });
+  document.getElementById('netGrid').innerHTML = html;
+}
+renderNets(NETS);
+
+function setNetFilter(filter, btn){
+  activeNetFilter = filter;
+  document.querySelectorAll('.nf-tab').forEach(b=>{ b.className='nf-tab'; });
+  btn.className = filter==='all' ? 'nf-tab active' : `nf-tab active-${filter}`;
+  const customForm = document.getElementById('customNetForm');
+  customForm.classList.toggle('open', filter==='custom');
+  filterNets();
+}
+
+function filterNets(){
+  const q = document.getElementById('netSearch').value.toLowerCase();
+  let list = NETS;
+  if(activeNetFilter !== 'all' && activeNetFilter !== 'custom'){
+    list = list.filter(n => n.type === activeNetFilter);
+  } else if(activeNetFilter === 'custom'){
+    list = customNets;
+  }
+  if(q){
+    list = list.filter(n =>
+      n.name.toLowerCase().includes(q) || String(n.cid).includes(q) ||
+      n.type.includes(q) || n.sym.toLowerCase().includes(q) ||
+      (n.rpc||'').toLowerCase().includes(q) || (n.rpcLabel||'').toLowerCase().includes(q)
+    );
+  }
+  renderNets(list);
+}
+
+function addCustomNet(){
+  const name = document.getElementById('cnName').value.trim();
+  const cid  = parseInt(document.getElementById('cnCid').value);
+  const rpc  = document.getElementById('cnRpc').value.trim();
+  const sym  = document.getElementById('cnSym').value.trim() || 'ETH';
+  const exp  = document.getElementById('cnExp').value.trim() || '';
+  if(!name)   return toast('Enter network name','err');
+  if(!cid)    return toast('Enter a valid Chain ID','err');
+  if(!rpc)    return toast('Enter RPC URL','err');
+  const newNet = {
+    id:'custom_'+Date.now(), name, sym, cid, icon:'⚙', type:'custom',
+    rpc, rpcLabel: rpc.replace(/^https?:\/\//,'').split('/')[0],
+    exp, expTx: exp ? exp+'/tx/' : '',
+    envNote:'Custom network added by user. Verify RPC and Chain ID before deploying.'
+  };
+  customNets.push(newNet); NETS.push(newNet);
+  try{ localStorage.setItem('tf_custom_nets', JSON.stringify(customNets)); }catch(e){}
+  clearCustomForm(); filterNets();
+  toast(name+' added!','ok');
+}
+
+function clearCustomForm(){
+  ['cnName','cnCid','cnRpc','cnSym','cnExp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+}
+
+function pickNet(id){
+  selNet = NETS.find(n=>n.id===id);
+  if(!selNet) return;
+  filterNets();
+  activateNet(selNet);
+  scheduleSave();
+}
+
+function activateNet(n){
+  document.getElementById('noNetMsg').style.display = 'none';
+  document.getElementById('outWrap').style.display  = 'block';
+  document.getElementById('oNI').textContent  = n.icon;
+  document.getElementById('oNN').textContent  = n.name;
+  document.getElementById('oCID').textContent = 'Chain '+n.cid;
+  document.getElementById('s1').className = 'step done';
+  document.getElementById('s2').className = 'step active';
+  if(walletAddr) checkNet();
+  generate();
+}
+
+// ════════════════════════════════════════════
+// NETWORK SWITCHER (wallet connected)
+// ════════════════════════════════════════════
+function buildNetSwitcher(){
+  const drop=document.getElementById('netSwitchDrop');
+  drop.innerHTML=NETS.map(n=>`
+    <div class="nsd-item ${walletAddr&&selNet?.id===n.id?'current':''}" onclick="switchToNet('${n.id}')">
+      <span class="nsd-icon">${n.icon}</span>
+      <div><div class="nsd-name">${n.name}</div><div class="nsd-cid">Chain ${n.cid}</div></div>
+      <span class="nsd-badge ${n.type}">${n.type}</span>
+    </div>`).join('');
+}
+
+function toggleNetSwitch(){
+  const drop=document.getElementById('netSwitchDrop');
+  buildNetSwitcher();
+  drop.classList.toggle('open');
+  // close on outside click
+  setTimeout(()=>{
+    const close=e=>{
+      if(!document.getElementById('netSwitchWrap')?.contains(e.target)){
+        drop.classList.remove('open');
+        document.removeEventListener('click',close);
+      }
+    };
+    document.addEventListener('click',close);
+  },0);
+}
+
+async function switchToNet(id){
+  document.getElementById('netSwitchDrop').classList.remove('open');
+  const n=NETS.find(x=>x.id===id);
+  if(!n) return;
+  // Also update selected network in app
+  selNet=n;
+  pickNet(id);
+  // Switch wallet network
+  const hex='0x'+n.cid.toString(16);
+  try{
+    await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:hex}]});
+    toast('Switched to '+n.name,'ok');
+  }catch(e){
+    if(e.code===4902){
+      try{
+        await window.ethereum.request({method:'wallet_addEthereumChain',params:[{
+          chainId:hex,chainName:n.name,
+          nativeCurrency:{name:n.sym,symbol:n.sym,decimals:18},
+          rpcUrls:[n.rpc],blockExplorerUrls:[n.exp]
+        }]});
+        toast(n.name+' added to MetaMask','ok');
+      }catch(e2){ toast('Could not add network','err'); }
+    } else { toast(e.message||'Could not switch','err'); }
+  }
+  setTimeout(checkNet,1000);
+}
+
+async function switchNet(){
+  if(selNet) switchToNet(selNet.id);
+}
+
+// ════════════════════════════════════════════
+// WALLET
+// ════════════════════════════════════════════
+const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+function connectWallet(){
+  const has=typeof window.ethereum!=='undefined';
+  if(has){ connectExt(); return; }
+  showConnectModal();
+}
+
+async function connectExt(){
+  if(walletAddr){ navigator.clipboard.writeText(walletAddr).then(()=>toast('Address copied!','ok')); return; }
+  const btn=document.getElementById('walletBtn');
+  try{
+    btn.innerHTML='<span class="spin"></span> Connecting...';
+    btn.disabled=true;
+    provider=new ethers.BrowserProvider(window.ethereum);
+    const accs=await provider.send('eth_requestAccounts',[]);
+    if(!accs?.length) throw new Error('No accounts');
+    signer=await provider.getSigner();
+    walletAddr=await signer.getAddress();
+    onWalletConnected();
+    toast('Wallet connected!','ok');
+    window.ethereum.on('accountsChanged',a=>{ if(!a.length){walletAddr=null;location.reload();}else location.reload(); });
+    window.ethereum.on('chainChanged',()=>location.reload());
+    checkNet();
+  }catch(e){
+    btn.disabled=false;
+    setWalletUI(false);
+    toast(e.code===4001?'Rejected by user':e.message||'Failed','err');
+  }
+}
+
+async function connectWC(){
+  closeAnyModal();
+  const btn=document.getElementById('walletBtn');
+  try{
+    btn.innerHTML='<span class="spin"></span> WalletConnect...';
+    btn.disabled=true;
+    const rpc={}; NETS.forEach(n=>rpc[n.cid]=n.rpc);
+    const WCP=window.WalletConnectProvider?.default||window.WalletConnectProvider;
+    if(!WCP) throw new Error('WalletConnect not loaded');
+    const wcp=new WCP({rpc});
+    await wcp.enable();
+    provider=new ethers.BrowserProvider(wcp);
+    signer=await provider.getSigner();
+    walletAddr=await signer.getAddress();
+    onWalletConnected();
+    toast('WalletConnect connected!','ok');
+    wcp.on('disconnect',()=>{ walletAddr=null; location.reload(); });
+    checkNet();
+  }catch(e){
+    btn.disabled=false;
+    setWalletUI(false);
+    toast(e.message?.includes('closed')?'Cancelled':e.message||'WalletConnect failed','err');
+  }
+}
+
+function openInMM(){ closeAnyModal(); window.location.href=`https://metamask.app.link/dapp/${window.location.href.replace(/^https?:\/\//,'')}`; }
+
+function onWalletConnected(){
+  setWalletUI(true);
+  document.getElementById('deployBtn').disabled=false;
+  document.getElementById('s3').className='step active';
+  document.getElementById('netSwitchWrap').style.display='flex';
+  // show current network in switcher
+  if(selNet){
+    document.getElementById('nsIcon').textContent=selNet.icon;
+    document.getElementById('nsName').textContent=selNet.name;
+    document.getElementById('netSwitchBtn').className='net-switch-btn active';
+  }
+}
+
+function setWalletUI(on){
+  const btn=document.getElementById('walletBtn');
+  btn.disabled=false;
+  if(on){
+    btn.className='wallet-btn connected';
+    btn.innerHTML=`<div class="wdot on"></div><span>${walletAddr.slice(0,6)}...${walletAddr.slice(-4)}</span>`;
+  } else {
+    btn.className='wallet-btn';
+    btn.innerHTML='<div class="wdot"></div><span>Connect Wallet</span>';
+  }
+}
+
+async function checkNet(){
+  if(!walletAddr||!selNet){ document.getElementById('netWarn').style.display='none'; return; }
+  try{
+    const net=await (new ethers.BrowserProvider(window.ethereum)).getNetwork();
+    const ok=Number(net.chainId)===selNet.cid;
+    document.getElementById('netWarn').style.display=ok?'none':'flex';
+    document.getElementById('netWarnMsg').textContent='Wrong network — switch to '+selNet.name;
+    const ds=document.getElementById('deployStatus');
+    ds.textContent=ok?'✓ on '+selNet.name:'⚠ wrong network';
+    ds.style.color=ok?'var(--green)':'var(--amber)';
+    // update switcher label
+    if(selNet){
+      document.getElementById('nsIcon').textContent=selNet.icon;
+      document.getElementById('nsName').textContent=selNet.name;
+    }
+  }catch(e){}
+}
+
+// Auto-reconnect
+(async()=>{
+  if(!window.ethereum) return;
+  try{
+    const accs=await window.ethereum.request({method:'eth_accounts'});
+    if(accs?.length){
+      provider=new ethers.BrowserProvider(window.ethereum);
+      signer=await provider.getSigner();
+      walletAddr=accs[0];
+      onWalletConnected();
+      document.getElementById('deployBtn').disabled=false;
+      window.ethereum.on('accountsChanged',()=>location.reload());
+      window.ethereum.on('chainChanged',()=>location.reload());
+      checkNet();
+    }
+  }catch(e){}
+})();
+
+// ════════════════════════════════════════════
+// MODALS
+// ════════════════════════════════════════════
+function showConnectModal(){
+  if(document.getElementById('wModal')) return;
+  const has=typeof window.ethereum!=='undefined';
+  const ov=document.createElement('div');
+  ov.className='overlay'; ov.id='wModal';
+  ov.onclick=e=>{if(e.target===ov)closeAnyModal();};
+  ov.innerHTML=`
+    <div class="modal">
+      <div class="mhdr"><div class="mtitle">Connect<span style="color:var(--amber)">Wallet</span></div><button class="mclose" onclick="closeAnyModal()">✕</button></div>
+      <div class="msub">Choose how to connect</div>
+      <div class="mbody">
+        ${isMobile&&!has?`<div class="mopt" onclick="openInMM()"><div class="mico mm">🦊</div><div><div class="moname">Open in MetaMask</div><div class="modesc">Deep-link to MetaMask browser</div></div><div class="moarr">›</div></div>`:''}
+        ${has?`<div class="mopt" onclick="closeAnyModal();connectExt()"><div class="mico mm">🦊</div><div><div class="moname">MetaMask</div><div class="modesc">${isMobile?'In-app browser detected':'Extension detected'}</div></div><div class="moarr">›</div></div>`:''}
+        <div class="mdiv"><span>or</span></div>
+        <div class="mopt" onclick="connectWC()"><div class="mico wc">🔗</div><div><div class="moname">WalletConnect</div><div class="modesc">${isMobile?'Deep-link to wallet app':'Scan QR with mobile wallet'}</div></div><div class="moarr">›</div></div>
+      </div>
+      <div class="mhint"><b>📱 Needs HTTPS.</b> Host on <b>netlify.app</b> or open inside <b>MetaMask browser</b>. HTTP / file:// won't work on mobile.</div>
+    </div>`;
+  document.body.appendChild(ov);
+}
+function closeAnyModal(){ document.getElementById('wModal')?.remove(); document.getElementById('leaveModal')?.remove(); }
+
+// ════════════════════════════════════════════
+// FEATURES
+// ════════════════════════════════════════════
+function toggleFeat(el){
+  const f=el.dataset.f; feats[f]=!feats[f]; el.classList.toggle('on',feats[f]);
+  const dot=el.querySelector('.tdot');
+  if(dot){ dot.style.background=feats[f]?'var(--green)':''; dot.style.borderColor=feats[f]?'var(--green)':'var(--muted)'; dot.style.boxShadow=feats[f]?'0 0 5px rgba(63,185,80,.5)':'none'; }
+  if(f==='capped')  document.getElementById('capWrap').style.display=feats[f]?'block':'none';
+  if(f==='taxable') document.getElementById('taxWrap').style.display=feats[f]?'block':'none';
+  onChange();
+}
+
+// ════════════════════════════════════════════
+// LOGO
+// ════════════════════════════════════════════
+function onLogo(){
+  const url=document.getElementById('tLogo').value.trim();
+  const thumb=document.getElementById('logoThumb'),mbox=document.getElementById('metaLogo'),badge=document.getElementById('logoBadge');
+  if(!url){ thumb.innerHTML='🪙';mbox.innerHTML='🪙';badge.textContent='';badge.className='ibadge';onChange();return; }
+  const img=new Image();
+  img.onload=()=>{
+    const t=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;display:block"/>`;
+    thumb.innerHTML=t;mbox.innerHTML=t;badge.textContent='VALID';badge.className='ibadge v';onChange();
+  };
+  img.onerror=()=>{ thumb.innerHTML='❌';mbox.innerHTML='❌';badge.textContent='INVALID';badge.className='ibadge x';onChange(); };
+  img.src=url;
+}
+
+// ════════════════════════════════════════════
+// FORM CHANGE
+// ════════════════════════════════════════════
+function onChange(){
+  const nm=document.getElementById('tName').value.trim();
+  const sy=document.getElementById('tSymbol').value.trim().toUpperCase();
+  document.getElementById('metaName').textContent=nm||'Token Name';
+  document.getElementById('metaSym').textContent=sy||'SYM';
+  if(nm&&sy) document.getElementById('s2').className='step done';
+  generate();
+  scheduleSave();
+}
+
+// ════════════════════════════════════════════
+// GENERATE
+// ════════════════════════════════════════════
+function generate(){
+  if(!selNet) return;
+  const cfg=getCfg();
+  document.getElementById('contractCode').innerHTML=hlSol(buildContract(cfg));
+  document.getElementById('metaCode').textContent=JSON.stringify(buildMeta(cfg),null,2);
+  buildDeployInfo(cfg);
+}
+
+function getCfg(){
+  return {
+    name:     v('tName')||'MyToken',
+    symbol:  (v('tSymbol')||'MTK').toUpperCase(),
+    supply:   v('tSupply')||'1000000',
+    decimals: v('tDec')||'18',
+    desc:     v('tDesc'),
+    logo:     v('tLogo'),
+    cap:      v('tCap'),
+    tax:      v('tTax')||'2',
+    taxWlt:   v('tTaxWallet'),
+    web:      v('tWeb'),
+    twitter:  v('tTwitter'),
+    tg:       v('tTg'),
+    dc:       v('tDc'),
+    feats,net:selNet
+  };
+}
+
+// ════════════════════════════════════════════
+// CONTRACT BUILDER — Clean output, no junk chars
+// ════════════════════════════════════════════
+function buildContract(c){
+  const cn=c.name.replace(/\s+/g,'').replace(/[^a-zA-Z0-9_]/g,'')||'MyToken';
+  const ipfsCID=c.logo.replace(/^https?:\/\/[^/]+\/ipfs\//,'').replace(/^ipfs:\/\//,'').trim();
+  const ipfsLogo=ipfsCID?'ipfs://'+ipfsCID:'';
+  const desc=c.desc||c.name+' token on '+c.net.name;
+
+  // Build each section cleanly as string arrays, then join
+  const lines=[];
+
+  const L=(...args)=>lines.push(...args); // push lines
+
+  L(
+    '// SPDX-License-Identifier: MIT',
+    'pragma solidity ^0.8.20;',
+    '',
+    '/**',
+    ' * @title   '+c.name+' ('+c.symbol+')',
+    ' * @notice  '+desc,
+    ' * @dev     Network   : '+c.net.name+' (Chain ID '+c.net.cid+')',
+    ' *          Generator : TokenForge — Multi-Chain ERC-20',
+    ' *          Logo IPFS : '+(ipfsLogo||'not set'),
+    ' */',
+    'contract '+cn+' {',
+    '',
+    '    // ── Storage ────────────────────────────────────',
+    '    mapping(address => uint256) private _balances;',
+    '    mapping(address => mapping(address => uint256)) private _allowances;',
+    '    uint256 private _totalSupply;',
+    '    string  private _name;',
+    '    string  private _symbol;',
+    '    uint8   private _decimals;',
+    '    address private _owner;',
+    '',
+    '    // ── Metadata ───────────────────────────────────',
+    '    string public logoURI;',
+    '    string public contractURI;',
+    '    string public website;',
+    '    string public tokenDescription;',
+  );
+
+  if(c.feats.capped)    L('    uint256 private _cap;');
+  if(c.feats.pausable)  L('    bool private _paused;');
+  if(c.feats.blacklist) L('    mapping(address => bool) public blacklisted;');
+  if(c.feats.taxable){  L('    uint256 public taxPercent;','    address public taxWallet;'); }
+
+  L(
+    '',
+    '    // ── Events ─────────────────────────────────────',
+    '    event Transfer(address indexed from, address indexed to, uint256 value);',
+    '    event Approval(address indexed owner, address indexed spender, uint256 value);',
+    '    event OwnershipTransferred(address indexed prev, address indexed next);',
+    '    event MetadataUpdated(string logoURI, string contractURI);',
+  );
+  if(c.feats.mintable)  L('    event Minted(address indexed to, uint256 amount);');
+  if(c.feats.burnable)  L('    event Burned(address indexed from, uint256 amount);');
+  if(c.feats.pausable)  L('    event Paused(address account);','    event Unpaused(address account);');
+  if(c.feats.blacklist) L('    event Blacklisted(address indexed account, bool status);');
+
+  L(
+    '',
+    '    // ── Modifier ───────────────────────────────────',
+    '    modifier onlyOwner() {',
+    '        require(msg.sender == _owner, "'+cn+': not owner");',
+    '        _;',
+    '    }',
+    '',
+    '    // ── Constructor ────────────────────────────────',
+    '    constructor() {',
+    '        _name     = "'+c.name+'";',
+    '        _symbol   = "'+c.symbol+'";',
+    '        _decimals = '+c.decimals+';',
+    '        _owner    = msg.sender;',
+    '        logoURI          = "'+ipfsLogo+'";',
+    '        website          = "'+c.web+'";',
+    '        tokenDescription = "'+desc+'";',
+  );
+  if(c.feats.capped){
+    const cap=c.cap||String(parseInt(c.supply)*10);
+    L('        _cap = '+cap+' * (10 ** uint256('+c.decimals+'));');
+  }
+  if(c.feats.taxable){
+    L('        taxPercent = '+( c.tax||'2')+';');
+    L('        taxWallet  = '+(c.taxWlt?c.taxWlt:'msg.sender')+';');
+  }
+  L(
+    '        uint256 initSupply = '+c.supply+' * (10 ** uint256('+c.decimals+'));',
+  );
+  if(c.feats.capped) L('        require(initSupply <= _cap, "'+cn+': supply exceeds cap");');
+  L(
+    '        _totalSupply             = initSupply;',
+    '        _balances[msg.sender]    = initSupply;',
+    '        emit Transfer(address(0), msg.sender, initSupply);',
+    '        emit OwnershipTransferred(address(0), msg.sender);',
+    '    }',
+    '',
+    '    // ── ERC-20 View ─────────────────────────────────',
+    '    function name()        public view returns (string memory) { return _name; }',
+    '    function symbol()      public view returns (string memory) { return _symbol; }',
+    '    function decimals()    public view returns (uint8)         { return _decimals; }',
+    '    function totalSupply() public view returns (uint256)       { return _totalSupply; }',
+    '    function balanceOf(address account) public view returns (uint256) {',
+    '        return _balances[account];',
+    '    }',
+    '',
+    '    // ── ERC-20 Actions ──────────────────────────────',
+    '    function transfer(address to, uint256 amount) public returns (bool) {',
+    '        _transfer(msg.sender, to, amount);',
+    '        return true;',
+    '    }',
+    '    function allowance(address owner_, address spender) public view returns (uint256) {',
+    '        return _allowances[owner_][spender];',
+    '    }',
+    '    function approve(address spender, uint256 amount) public returns (bool) {',
+    '        _allowances[msg.sender][spender] = amount;',
+    '        emit Approval(msg.sender, spender, amount);',
+    '        return true;',
+    '    }',
+    '    function transferFrom(address from, address to, uint256 amount) public returns (bool) {',
+    '        uint256 allowed = _allowances[from][msg.sender];',
+    '        require(allowed >= amount, "'+cn+': insufficient allowance");',
+    '        _allowances[from][msg.sender] = allowed - amount;',
+    '        _transfer(from, to, amount);',
+    '        return true;',
+    '    }',
+    '',
+    '    // ── Ownership ───────────────────────────────────',
+    '    function owner() public view returns (address) { return _owner; }',
+    '    function transferOwnership(address newOwner) public onlyOwner {',
+    '        require(newOwner != address(0), "'+cn+': zero address");',
+    '        emit OwnershipTransferred(_owner, newOwner);',
+    '        _owner = newOwner;',
+    '    }',
+  );
+
+  if(c.feats.capped){
+    L(
+      '    function cap() public view returns (uint256) { return _cap; }',
+    );
+  }
+
+  L(
+    '',
+    '    // ── Internal ────────────────────────────────────',
+    '    function _transfer(address from, address to, uint256 amount) internal {',
+    '        require(from != address(0) && to != address(0), "'+cn+': zero address");',
+    '        require(_balances[from] >= amount, "'+cn+': insufficient balance");',
+  );
+  if(c.feats.pausable)  L('        require(!_paused, "'+cn+': paused");');
+  if(c.feats.blacklist){
+    L(
+      '        require(!blacklisted[from], "'+cn+': sender blacklisted");',
+      '        require(!blacklisted[to],   "'+cn+': recipient blacklisted");',
+    );
+  }
+  if(c.feats.taxable){
+    L(
+      '        uint256 fee = (amount * taxPercent) / 100;',
+      '        uint256 net = amount - fee;',
+      '        _balances[from] -= amount;',
+      '        _balances[to]   += net;',
+      '        if (fee > 0) {',
+      '            _balances[taxWallet] += fee;',
+      '            emit Transfer(from, taxWallet, fee);',
+      '        }',
+      '        emit Transfer(from, to, net);',
+    );
+  } else {
+    L(
+      '        _balances[from] -= amount;',
+      '        _balances[to]   += amount;',
+      '        emit Transfer(from, to, amount);',
+    );
+  }
+  L('    }','');
+
+  L('    function _mint(address to, uint256 amount) internal {');
+  if(c.feats.capped) L('        require(_totalSupply + amount <= _cap, "'+cn+': cap exceeded");');
+  L(
+    '        _totalSupply   += amount;',
+    '        _balances[to]  += amount;',
+    '        emit Transfer(address(0), to, amount);',
+    '    }',
+  );
+
+  // Optional features
+  if(c.feats.mintable){
+    L(
+      '',
+      '    // ── Mint ───────────────────────────────────────',
+      '    function mint(address to, uint256 amount) external onlyOwner {',
+      '        _mint(to, amount);',
+      '        emit Minted(to, amount);',
+      '    }',
+    );
+  }
+  if(c.feats.burnable){
+    L(
+      '',
+      '    // ── Burn ───────────────────────────────────────',
+      '    function burn(uint256 amount) external {',
+      '        require(_balances[msg.sender] >= amount, "'+cn+': insufficient balance");',
+      '        _balances[msg.sender] -= amount;',
+      '        _totalSupply          -= amount;',
+      '        emit Transfer(msg.sender, address(0), amount);',
+      '        emit Burned(msg.sender, amount);',
+      '    }',
+    );
+  }
+  if(c.feats.pausable){
+    L(
+      '',
+      '    // ── Pause ──────────────────────────────────────',
+      '    function paused()  public view returns (bool) { return _paused; }',
+      '    function pause()   external onlyOwner { _paused = true;  emit Paused(msg.sender); }',
+      '    function unpause() external onlyOwner { _paused = false; emit Unpaused(msg.sender); }',
+    );
+  }
+  if(c.feats.blacklist){
+    L(
+      '',
+      '    // ── Blacklist ───────────────────────────────────',
+      '    function setBlacklist(address account, bool status) external onlyOwner {',
+      '        blacklisted[account] = status;',
+      '        emit Blacklisted(account, status);',
+      '    }',
+    );
+  }
+  if(c.feats.taxable){
+    L(
+      '',
+      '    // ── Tax ────────────────────────────────────────',
+      '    function setTax(uint256 _pct, address _wallet) external onlyOwner {',
+      '        require(_pct <= 25, "'+cn+': max 25%");',
+      '        taxPercent = _pct;',
+      '        taxWallet  = _wallet;',
+      '    }',
+    );
+  }
+
+  L(
+    '',
+    '    // ── Metadata ───────────────────────────────────',
+    '    /**',
+    '     * @notice Returns all token info in one call.',
+    '     *         Call this from your dApp to read logo + description.',
+    '     */',
+    '    function tokenInfo() external view returns (',
+    '        string memory name_,',
+    '        string memory symbol_,',
+    '        uint8         decimals_,',
+    '        uint256       totalSupply_,',
+    '        string memory logoURI_,',
+    '        string memory contractURI_,',
+    '        string memory website_,',
+    '        string memory description_',
+    '    ) {',
+    '        return (',
+    '            _name,',
+    '            _symbol,',
+    '            _decimals,',
+    '            _totalSupply,',
+    '            logoURI,',
+    '            contractURI,',
+    '            website,',
+    '            tokenDescription',
+    '        );',
+    '    }',
+    '',
+    '    /** @notice Update logo URI only. Owner only. */',
+    '    function setLogoURI(string memory _uri) external onlyOwner {',
+    '        logoURI = _uri;',
+    '        emit MetadataUpdated(_uri, contractURI);',
+    '    }',
+    '',
+    '    /** @notice Update all metadata fields. Owner only. */',
+    '    function setMetadata(',
+    '        string memory _logo,',
+    '        string memory _curi,',
+    '        string memory _web,',
+    '        string memory _desc',
+    '    ) external onlyOwner {',
+    '        logoURI          = _logo;',
+    '        contractURI      = _curi;',
+    '        website          = _web;',
+    '        tokenDescription = _desc;',
+    '        emit MetadataUpdated(_logo, _curi);',
+    '    }',
+    '',
+    '}',
+  );
+
+  return lines.join('\n');
+}
+
+// ════════════════════════════════════════════
+// METADATA
+// ════════════════════════════════════════════
+function buildMeta(c){
+  const m={
+    name:c.name,symbol:c.symbol,decimals:parseInt(c.decimals),
+    description:c.desc||c.name+' token on '+c.net.name,
+    image:c.logo||'',
+    network:{name:c.net.name,chainId:c.net.cid},
+    tags:[c.net.type,'erc20']
+  };
+  if(c.web) m.website=c.web;
+  if(c.twitter||c.tg||c.dc){
+    m.social={};
+    if(c.twitter) m.social.twitter=c.twitter;
+    if(c.tg)      m.social.telegram=c.tg;
+    if(c.dc)      m.social.discord=c.dc;
+  }
+  return m;
+}
+
+// ════════════════════════════════════════════
+// DEPLOY INFO — environment-aware
+// ════════════════════════════════════════════
+function buildDeployInfo(c){
+  const n = c.net;
+  const isTestnet = n.type === 'testnet';
+  const isDevnet  = n.type === 'devnet';
+  const isCustom  = n.type === 'custom';
+
+  // Environment banner
+  const envColors = {mainnet:'var(--green)',l2:'var(--blue)',testnet:'var(--amber)',devnet:'var(--purple)',custom:'var(--cyan)'};
+  const envColor  = envColors[n.type]||'var(--muted)';
+  const envBanner = `<div style="padding:10px 12px;border:1px solid ${envColor};background:rgba(0,0,0,.15);margin-bottom:10px;display:flex;align-items:flex-start;gap:10px">
+    <span style="font-size:16px;flex-shrink:0">${n.icon}</span>
+    <div>
+      <div style="font-size:10px;font-weight:700;color:${envColor};letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px">${(n.type||'').toUpperCase()} ENVIRONMENT</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.6">${n.envNote||'Deploy on '+n.name}</div>
+    </div>
+  </div>`;
+
+  // Testnet-specific warning
+  const testnetWarning = isTestnet ? `<div style="padding:9px 12px;border:1px solid rgba(240,165,0,.35);background:rgba(240,165,0,.06);margin-bottom:10px;font-size:11px;color:var(--amber);line-height:1.6">
+    ⚠ <b>Testnet deployment.</b> Tokens have no real value. Gas is paid with free test ${n.sym}.
+    ${n.faucet?`<br><a href="${n.faucet}" target="_blank" style="color:var(--green)">⛽ Get free test ${n.sym} →</a>`:''}
+  </div>` : '';
+
+  // Devnet-specific instructions
+  const devnetInstructions = isDevnet ? `<div style="padding:9px 12px;border:1px solid rgba(188,140,255,.35);background:rgba(188,140,255,.06);margin-bottom:10px;font-size:11px;color:var(--purple);line-height:1.8">
+    🖥 <b>Local devnet.</b> No MetaMask needed for script deploy.
+    <br><span style="color:var(--text2)">Start your local node first:</span>
+    <br><code style="background:var(--code);padding:2px 6px;font-size:10px;color:var(--code-txt)">${n.id==='hardhat'?'npx hardhat node':n.id==='anvil'?'anvil':'ganache'}</code>
+    <br>Then add <code style="background:var(--code);padding:2px 6px;font-size:10px;color:var(--code-txt)">http://127.0.0.1:${n.id==='ganache'?'7545':'8545'}</code> as Custom RPC in MetaMask.
+  </div>` : '';
+
+  const rows = [
+    ['Network',  n.name],
+    ['Type',     `<span style="color:${envColor};font-weight:700;text-transform:uppercase">${n.type||'custom'}</span>`],
+    ['Chain ID', String(n.cid)],
+    ['Currency', n.sym],
+    ['RPC',      `<span style="color:var(--cyan);font-size:10px" title="${n.rpc}">${n.rpcLabel||n.rpc}</span>`],
+    ['RPC URL',  `<span style="color:var(--muted);font-size:10px;word-break:break-all">${n.rpc}</span>`],
+    n.exp ? ['Explorer', `<a href="${n.exp}" target="_blank">${n.exp}</a>`] : null,
+    n.verify ? ['Verify',   `<a href="${n.verify}" target="_blank">${n.verify}</a>`] : null,
+    ['Compiler', 'Solidity 0.8.20 (in-browser)'],
+    n.faucet ? ['Faucet', `<a href="${n.faucet}" target="_blank" style="color:var(--green)">Get free ${n.sym} →</a>`] : null,
+    ['Logo',     c.logo ? `<span style="color:var(--green)">✓ IPFS set</span>` : `<span style="color:var(--muted)">Not set</span>`],
+  ].filter(Boolean);
+
+  document.getElementById('deployInfoBody').innerHTML =
+    envBanner + testnetWarning + devnetInstructions +
+    rows.map(([k,vl])=>`<div class="dr"><div class="dk">${k}</div><div class="dv">${vl}</div></div>`).join('');
+}
+
+// ════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════
+function setTab(t){
+  currentTab=t;
+  ['contract','metadata','info'].forEach(x=>document.getElementById('tab-'+x).style.display=x===t?'block':'none');
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['contract','metadata','info'][i]===t));
+}
+
+// ════════════════════════════════════════════
+// SOLC
+// ════════════════════════════════════════════
+function loadSolc(){
+  return new Promise((res,rej)=>{
+    if(solcLoaded&&solcModule){res(solcModule);return;}
+    window.Module={onRuntimeInitialized:function(){solcModule=window.Module;solcLoaded=true;res(solcModule);}};
+    const s=document.createElement('script');
+    s.src='https://binaries.soliditylang.org/bin/soljson-v0.8.20+commit.a1b79de6.js';
+    s.onerror=()=>rej(new Error('Failed to load compiler'));
+    document.head.appendChild(s);
+  });
+}
+
+function compileSol(source,cn){
+  const compile=solcModule.cwrap('solidity_compile','string',['string','number']);
+  const input=JSON.stringify({
+    language:'Solidity',
+    sources:{'token.sol':{content:source}},
+    settings:{optimizer:{enabled:true,runs:200},outputSelection:{'*':{'*':['abi','evm.bytecode']}}}
+  });
+  const out=JSON.parse(compile(input,0));
+  if(out.errors?.some(e=>e.severity==='error')){
+    throw new Error(out.errors.find(e=>e.severity==='error').formattedMessage||'Compile error');
+  }
+  const cs=out.contracts?.['token.sol'];
+  if(!cs) throw new Error('Compilation failed — no output');
+  const name=Object.keys(cs).find(n=>n===cn)||Object.keys(cs)[0];
+  return cs[name];
+}
+
+// ════════════════════════════════════════════
+// DEPLOY
+// ════════════════════════════════════════════
+async function deployToken(){
+  if(!walletAddr) return toast('Connect wallet first','err');
+  if(!selNet)     return toast('Select a network','err');
+  if(deployed)    return;
+
+  const cfg=getCfg();
+  if(cfg.name==='MyToken'&&!v('tName')) return toast('Enter a token name','err');
+  if(cfg.symbol==='MTK'&&!v('tSymbol')) return toast('Enter a symbol','err');
+  if(!v('tSupply')) return toast('Enter initial supply','err');
+
+  const cn=cfg.name.replace(/\s+/g,'').replace(/[^a-zA-Z0-9_]/g,'')||'MyToken';
+  const source=buildContract(cfg);
+
+  setDeployBtn(true,'Preparing...');
+  resetSteps();
+  isDirty=false; // won't warn on reload during deploy
+
+  try{
+    // check network
+    const net=await (new ethers.BrowserProvider(window.ethereum)).getNetwork();
+    if(Number(net.chainId)!==selNet.cid){
+      toast('Wrong network — switching...','info');
+      await switchToNet(selNet.id);
+      setDeployBtn(false,'◈ Deploy Token');
+      return;
+    }
+
+    // step 1: load compiler
+    setStep(0,'wait','Loading compiler (~7MB)...');
+    setProgress(15);
+    setDeployBtn(true,'Loading compiler...');
+    await loadSolc();
+    setStep(0,'ok','Compiler ready ✓');
+    setProgress(30);
+
+    // step 2: compile
+    setStep(1,'wait','Compiling...');
+    setDeployBtn(true,'Compiling...');
+    await new Promise(r=>setTimeout(r,60));
+    const compiled=compileSol(source,cn);
+    const abi=compiled.abi;
+    const bytecode='0x'+compiled.evm.bytecode.object;
+    if(!bytecode||bytecode==='0x') throw new Error('Empty bytecode');
+    setStep(1,'ok','Compiled ✓');
+    setProgress(55);
+    toast('Contract compiled','ok');
+
+    // step 3: deploy
+    setStep(2,'wait','Waiting for MetaMask...');
+    setDeployBtn(true,'Confirm in MetaMask...');
+    const s=await (new ethers.BrowserProvider(window.ethereum)).getSigner();
+    const factory=new ethers.ContractFactory(abi,bytecode,s);
+    const tx=await factory.deploy();
+    setStep(2,'ok','Transaction sent ✓');
+    setProgress(75);
+    toast('Tx sent! Waiting...','info');
+
+    // step 4: confirm
+    setStep(3,'wait','Confirming...');
+    setDeployBtn(true,'Confirming...');
+    const receipt=await tx.waitForDeployment();
+    deployedAddr=await receipt.getAddress();
+    deployedTxHash=tx.deploymentTransaction().hash;
+
+    // read back logo from chain
+    let logoOnChain='';
+    try{
+      const dc=new ethers.Contract(deployedAddr,['function tokenInfo() external view returns(string,string,uint8,uint256,string,string,string,string)'],s);
+      const info=await dc.tokenInfo(); logoOnChain=info[4]||'';
+    }catch(e){}
+
+    setStep(3,'ok','Confirmed ✓');
+    setProgress(100);
+    deployed=true;
+    isDirty=false;
+    document.getElementById('s4').className='step done';
+
+    // show result
+    document.getElementById('rContract').innerHTML=`<a href="${selNet.exp}/address/${deployedAddr}" target="_blank">${deployedAddr}</a>`;
+    document.getElementById('rTxHash').innerHTML=`<a href="${selNet.expTx}${deployedTxHash}" target="_blank">${deployedTxHash.slice(0,18)}...${deployedTxHash.slice(-6)}</a>`;
+    document.getElementById('rNetwork').textContent=selNet.name+' (Chain '+selNet.cid+')';
+    document.getElementById('rLogoURI').textContent=logoOnChain||cfg.logo||'(not set)';
+    if(!selNet.verify) document.getElementById('verifyBtn').style.display='none';
+    document.getElementById('rbox').style.display='block';
+
+    toast('🎉 '+cfg.name+' deployed!','ok');
+    setDeployBtn(false,'◈ Deployed ✓');
+    document.getElementById('deployBtn').className='btn btn-ghost btn-big';
+    document.getElementById('deployBtn').disabled=true;
+    // clear saved state after deploy
+    localStorage.removeItem(SK);
+
+  }catch(e){
+    const msg=e.reason||e.message||'Deployment failed';
+    toast(msg.slice(0,80),'err');
+    markStepErr();
+    setDeployBtn(false,'◈ Deploy Token');
+    document.getElementById('deployBtn').disabled=false;
+    setProgress(0);
+    isDirty=true;
+  }
+}
+
+function openExplorer(){ if(deployedAddr&&selNet) window.open(selNet.exp+'/address/'+deployedAddr,'_blank'); }
+function openVerify(){
+  if(!selNet?.verify){ toast('No verify URL for this network','err'); return; }
+  window.open(selNet.verify+(deployedAddr?'?a='+deployedAddr:''),'_blank');
+}
+async function addToMM(){
+  if(!deployedAddr) return;
+  const cfg=getCfg();
+  try{
+    await window.ethereum.request({method:'wallet_watchAsset',params:{type:'ERC20',options:{
+      address:deployedAddr,symbol:cfg.symbol.slice(0,8),decimals:parseInt(cfg.decimals),image:cfg.logo||''
+    }}});
+    toast('Token added to MetaMask!','ok');
+  }catch(e){ toast(e.message||'Failed','err'); }
+}
+
+// ════════════════════════════════════════════
+// UI HELPERS
+// ════════════════════════════════════════════
+function setDeployBtn(loading,label){
+  const btn=document.getElementById('deployBtn');
+  btn.disabled=loading;
+  btn.innerHTML=loading?`<span class="spin"></span> ${label}`:label;
+}
+function setStep(i,state,msg){
+  const ic=document.getElementById('si'+i),mc=document.getElementById('sm'+i);
+  ic.className='sico '+(state==='idle'?'':state);
+  ic.innerHTML=state==='wait'?'<span class="spin"></span>':state==='ok'?'✓':state==='err'?'✕':'①②③④'[i];
+  if(mc&&msg) mc.textContent=msg;
+}
+function markStepErr(){ [0,1,2,3].forEach(i=>{ if(document.getElementById('si'+i).classList.contains('wait')) setStep(i,'err','Failed'); }); }
+function resetSteps(){
+  [0,1,2,3].forEach(i=>setStep(i,'idle',''));
+  setProgress(0);
+  document.getElementById('rbox').style.display='none';
+  deployed=false; deployedAddr=null; deployedTxHash=null;
+}
+function resetDeploy(){
+  resetSteps();
+  document.getElementById('deployBtn').disabled=!walletAddr;
+  document.getElementById('deployBtn').className='btn btn-green btn-big';
+  document.getElementById('deployBtn').innerHTML='◈ Deploy Token';
+}
+function setProgress(p){ document.getElementById('progFill').style.width=p+'%'; }
+
+// ════════════════════════════════════════════
+// COPY / DOWNLOAD
+// ════════════════════════════════════════════
+function copyEl(id){
+  const el=document.getElementById(id);
+  navigator.clipboard.writeText(el.innerText||el.textContent).then(()=>toast('Copied!','ok'));
+}
+function dlContract(){
+  const cfg=getCfg();
+  dl(document.getElementById('contractCode').innerText,(cfg.name.replace(/\s+/g,'')||'MyToken')+'.sol','text/plain');
+  toast('Downloaded .sol','ok');
+}
+function dlMeta(){
+  dl(document.getElementById('metaCode').textContent,'metadata.json','application/json');
+  toast('Downloaded metadata.json','ok');
+}
+async function downloadPackage(){
+  if(!selNet) return toast('Select a network first','err');
+  const cfg=getCfg();
+  const btn=document.getElementById('pkgBtn');
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
+  try{
+    const cn    = cfg.name.replace(/\s+/g,'')||'MyToken';
+    const sol   = document.getElementById('contractCode').innerText;
+    const meta  = document.getElementById('metaCode').textContent;
+    const n     = cfg.net;
+    const isTest= n.type==='testnet';
+    const isDev = n.type==='devnet';
+    const isMain= n.type==='mainnet'||n.type==='l2';
+
+    const readme=[
+      '# '+cn+' ('+cfg.symbol+')',
+      '## Generated by TokenForge — Developed by TAM (Token Asset Manager)',
+      '',
+      '### Environment: '+n.type.toUpperCase(),
+      '- Network  : '+n.name,
+      '- Chain ID : '+n.cid,
+      '- Currency : '+n.sym,
+      '- RPC      : '+n.rpc,
+      '- RPC Label: '+(n.rpcLabel||n.rpc),
+      n.exp   ?'- Explorer : '+n.exp:'',
+      n.faucet?'- Faucet   : '+n.faucet:'',
+      '',
+      isMain ?'> 🔴 MAINNET — Real '+n.sym+' required for gas. Verify all settings.':
+      isTest ?'> ✅ TESTNET — No real funds. Get free '+n.sym+' from faucet.':
+      isDev  ?'> 🖥 LOCAL DEVNET — Run local node first. No gas costs.':'',
+      '',
+      '### Token Details',
+      '- Name: '+cfg.name+', Symbol: '+cfg.symbol,
+      '- Decimals: '+cfg.decimals+', Supply: '+cfg.supply,
+      '- Logo IPFS: '+(cfg.logo||'not set'),
+      '',
+      '### Features',
+      ...Object.entries(cfg.feats).map(([k,fv])=>'- '+k+': '+(fv?'✓':'✗')),
+      '',
+      '### Deploy Steps',
+      isDev?
+        '1. Start local node: `'+(n.id==='ganache'?'ganache':'npx hardhat node')+'`\n2. Import test account to MetaMask\n3. Add RPC '+n.rpc+' (Chain '+n.cid+')\n4. npx hardhat run scripts/deploy.js --network '+n.id:
+      isTest?
+        '1. Get test '+n.sym+': '+(n.faucet||'see faucet')+'\n2. Upload '+cn+'.sol to remix.ethereum.org\n3. Compile → 0.8.20 → Deploy → Injected Provider\n'+(n.verify?'4. Verify: '+n.verify:'4. Verify on explorer'):
+        '1. Fund wallet with real '+n.sym+' for gas\n2. Upload '+cn+'.sol to remix.ethereum.org\n3. Compile → 0.8.20 → Deploy → Injected Provider → '+n.name+'\n'+(n.verify?'4. Verify: '+n.verify:'4. Verify on explorer'),
+    ].filter(s=>s!==undefined).join('\n');
+
+    // Hardhat config — env-aware
+    const hh=['require("@nomicfoundation/hardhat-toolbox");','','// TokenForge · '+n.name+' ('+n.type.toUpperCase()+')','// RPC: '+n.rpc,'','module.exports = {','  solidity: { version: "0.8.20", settings: { optimizer: { enabled: true, runs: 200 } } },','  networks: {'];
+    if(isDev){
+      hh.push('    // Local devnet — start `'+(n.id==='ganache'?'ganache':'npx hardhat node')+'` first');
+      hh.push('    '+n.id+': { url: "'+n.rpc+'", chainId: '+n.cid+', accounts: { mnemonic: "test test test test test test test test test test test junk" } },');
+    } else {
+      hh.push('    // '+n.name+' ('+n.type+') — set PRIVATE_KEY in .env');
+      hh.push('    '+n.id+': { url: "'+n.rpc+'", chainId: '+n.cid+', accounts: [process.env.PRIVATE_KEY] },');
+    }
+    hh.push('  },');
+    if(n.exp&&!isDev){ const k={poly:'POLYGONSCAN_API_KEY',amoy:'POLYGONSCAN_API_KEY',bnb:'BSCSCAN_API_KEY',bsct:'BSCSCAN_API_KEY'}[n.id]||'ETHERSCAN_API_KEY'; hh.push('  etherscan: { apiKey: process.env.'+k+' },'); }
+    hh.push('};');
+
+    // Deploy script — env-aware
+    const ds=[
+      'const { ethers } = require("hardhat");',
+      '// TokenForge Deploy — '+n.name+' ('+n.type.toUpperCase()+')',
+      isMain?'// 🔴 MAINNET — double-check before running':isTest?'// ✅ TESTNET — no real funds':'// 🖥 LOCAL DEVNET — no real funds',
+      '',
+      'async function main() {',
+      '  const [deployer] = await ethers.getSigners();',
+      '  console.log("Network  :", "'+n.name+' ('+n.type+')");',
+      '  console.log("RPC      :", "'+n.rpc+'");',
+      '  console.log("Deployer :", deployer.address);',
+      '  const bal = await ethers.provider.getBalance(deployer.address);',
+      '  console.log("Balance  :", ethers.formatEther(bal), "'+n.sym+'");',
+      isMain?'  if(bal === 0n) throw new Error("No '+n.sym+' for gas — aborting mainnet deploy");':'',
+      '  const Token = await ethers.getContractFactory("'+cn+'");',
+      '  console.log("Deploying '+cn+'...");',
+      '  const token = await Token.deploy();',
+      '  await token.waitForDeployment();',
+      '  const addr = await token.getAddress();',
+      '  console.log("✓ Deployed:", addr);',
+      n.exp?'  console.log("Explorer :", "'+n.exp+'/address/"+addr);':'',
+      n.verify&&!isDev?'  console.log("Verify   : npx hardhat verify --network '+n.id+' " + addr);':'',
+      '}',
+      'main().catch(e => { console.error(e); process.exitCode = 1; });',
+    ].filter(s=>s!==undefined).join('\n');
+
+    const zip=new JSZip();
+    const f=zip.folder(cn);
+    f.file(cn+'.sol',sol);
+    f.file('metadata.json',meta);
+    f.file('README.md',readme);
+    f.file('hardhat.config.js',hh.join('\n'));
+    f.file('scripts/deploy.js',ds);
+    if(!isDev) f.file('.env.example','# DO NOT commit this file\nPRIVATE_KEY=your_private_key_without_0x\n'+(n.exp?((n.id==='poly'||n.id==='amoy'?'POLYGONSCAN_API_KEY':n.id==='bnb'||n.id==='bsct'?'BSCSCAN_API_KEY':'ETHERSCAN_API_KEY')+'=your_api_key\n'):''));
+    f.file('.gitignore','node_modules/\n.env\nartifacts/\ncache/\n');
+    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download=cn+'-'+n.type+'-package.zip'; a.click();
+    URL.revokeObjectURL(a.href);
+    toast('Downloaded '+cn+'-'+n.type+'-package.zip','ok');
+  }catch(e){ toast('Error: '+e.message,'err'); }
+  finally{ btn.disabled=false; btn.innerHTML='⬇ .zip'; }
+}
+function dl(content,name,type){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type}));
+  a.download=name; a.click();
+}
+
+// ════════════════════════════════════════════
+// SYNTAX HIGHLIGHT
+// ════════════════════════════════════════════
+function hlSol(code){
+  return code
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/(\/\/.*)/g,'<span class="cm">$1</span>')
+    .replace(/\/\*[\s\S]*?\*\//g,m=>'<span class="cm">'+m+'</span>')
+    .replace(/\b(pragma|contract|function|constructor|event|mapping|require|returns|return|override|public|external|internal|private|pure|view|payable|memory|storage|indexed|emit|address|uint256|uint8|bool|string|bytes32|is|if|else|for|while|modifier|true|false)\b/g,'<span class="kw">$1</span>')
+    .replace(/"([^"]*)"/g,'<span class="st">"$1"</span>')
+    .replace(/\b(\d+)\b/g,'<span class="nm">$1</span>');
+}
+
+// ════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════
+function toast(msg,type='info'){
+  const c=document.getElementById('toasts');
+  const el=document.createElement('div');
+  el.className='toast '+type; el.textContent=msg;
+  c.appendChild(el); setTimeout(()=>el.remove(),4500);
+}
+
+// ════════════════════════════════════════════
+// ENTER KEY NAV
+// ════════════════════════════════════════════
+(function(){
+  const fields=['tName','tSymbol','tSupply','tDec','tDesc','tLogo','tCap','tTax','tTaxWallet','tWeb','tTwitter','tTg','tDc'];
+  fields.forEach((id,i)=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('keydown',e=>{
+      if(e.key!=='Enter') return;
+      e.preventDefault();
+      const next=fields.slice(i+1).find(fid=>{
+        const f=document.getElementById(fid);
+        return f&&!f.closest('[style*="display:none"]')&&!f.closest('[style*="display: none"]');
+      });
+      if(next){ const n=document.getElementById(next); n.focus(); n.select&&n.select(); }
+      else { el.blur(); if(walletAddr&&selNet&&!deployed) document.getElementById('deployBtn').focus(); }
+    });
+  });
+  document.getElementById('netSearch').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();document.querySelector('.nc')?.click();} });
+  document.getElementById('deployBtn').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!document.getElementById('deployBtn').disabled) deployToken(); });
+  document.getElementById('walletBtn').addEventListener('keydown',e=>{ if(e.key==='Enter') connectWallet(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ document.activeElement?.tagName==='INPUT'&&document.activeElement.blur(); closeAnyModal(); document.getElementById('netSwitchDrop')?.classList.remove('open'); }});
+})();
+
+// ════════════════════════════════════════════
+// LOAD SAVED STATE ON START
+// ════════════════════════════════════════════
+loadState();
+</script>
+</body>
+</html>
